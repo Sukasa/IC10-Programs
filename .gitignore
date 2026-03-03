@@ -1,0 +1,5 @@
+# Ignore any inliner output files
+*.*.asm
+*.sym
+*~
+*.swp

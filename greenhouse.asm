@@ -80,7 +80,6 @@ section definitions
   define ActiveAlarms       9                     # Active (1 == off-nominal) warnings as bit array
   define SeedHash		        10                    # Hash for the seed item used to plant this plant
   define FruitHash		      11                    # Hash for the fruit item this plant produces
-  define ActiveStatus       12                    # Run/Idle mode status.  Plus two reserved variable spaces that won't/can't be used now.
   
   ### Data Table Stack Addresses ####
   
@@ -567,7 +566,6 @@ update_common:                                    # Update the display with curr
   sb LogicSwitch Color Scratch1
   beqz Unlocked is_locked                         # If unlocked, set Active state to switch state
   lb Active LogicSwitch Setting Sum
-  poke ActiveStatus Active                        # Set active mode address for other equipment to read
   
 is_locked:                                        # If the switch is locked we skip reading active state, and move on to updating the displays
   sb GrowLight On LightsOn                        # Update lights with 'lights on' state
