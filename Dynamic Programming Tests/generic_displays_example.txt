@@ -1,0 +1,49 @@
+; Device RefIds
+let GasSensor reference 123456
+let PressureDisplay reference 789012
+let GasRegulator reference 345678
+let GasRegSPDisplay reference 252123
+let SPDial reference 901234
+let Filterbar1 reference 567890
+let FiltrationUnit reference 123456
+
+; Allocated memory
+let RegulatorSP = alloc(1)
+
+; Data table, raw values placed sequentially in memory (lowest to highest stack index)
+; Whitespace is ignored
+let SPColors = table [ 0, Color.Yellow, 1000,
+  Color.Green, 5000
+]
+
+; Bucket (data table with different formatting)
+let PressureBucket = Bucket [
+  5000 -> Color.Green,
+  1000 -> Color.Yellow
+]
+
+; Set a pressure regulator with a dial
+GasRegSPDisplay::Setting <- Dial(SPDial, RegulatorSP)
+GasRegulator::Setting <- $[RegulatorSP]
+
+; Alternate a light on and off
+StructureWallLight::On <- Blinker
+
+; Display gas pressure from a sensor on a screen, changing colour based on pressure
+PressureDisplay::Setting <- GasSensor::Pressure * 1000
+
+; The same thing, but using a direct ReferenceId for the source
+PressureDisplay::Setting <- 123456::Pressure * 1000
+
+PressureDisplay::Color <- Bucket(GasSensor::Pressure, Color.Red) maps SPColors
+PressureDisplay::Mode <- 5
+
+
+; Show filter lifetime remaining on a meter
+Meter(Filterbar1, 10, Yellow) <- FiltrationUnit:1:Quantity / 100
+
+; Batch set all angled wall lights on
+StructureWallLightAngled::On <- 1
+
+; Display average battery charge on an LCD
+LEDDisplay.BatteryCharge::Setting <- Average(StructureLargeBattery::Ratio)

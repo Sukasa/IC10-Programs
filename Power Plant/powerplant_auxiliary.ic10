@@ -1,0 +1,210 @@
+  define  OccupancySensor       Hash("StructureOccupancySensor")
+  define  PoweredVent           Hash("StructurePoweredVent")
+
+  define  ToggleSwitch          Hash("ModularDeviceSwitch")
+  define  FlipSwitch            Hash("ModularDeviceFlipSwitch")
+  define  Gauge                 Hash("ModularDeviceGauge2x2")
+  define  Gauge3                Hash("ModularDeviceGauge3x3")
+
+  define  DiodeSlide2           Hash("ModularDeviceSliderDiode2")
+  define  DiodeSlide            Hash("ModularDeviceSliderDiode1")
+  define  LEDDisplay2           Hash("ModularDeviceLEDdisplay2")
+  define  LEDDisplay3           Hash("ModularDeviceLEDdisplay3")
+
+  define  LongLight             Hash("StructureLightLong")
+  define  LongAngledLight       Hash("StructureLightLongAngled")
+  define  Light                 Hash("StructureWallLight")
+  define  SmallLight            Hash("StructureLightRoundSmall")
+  define  Airlock               Hash("StructureAirlock")
+  define  GasSensor             Hash("StructureGasSensor")
+  define  PipeAnalyzer          Hash("StructurePipeAnalysizer")
+  define  CableAnalyzer         Hash("StructureCableAnalysizer")
+  define  PushButtonSquare      Hash("ModularDeviceSquareButton")
+  define  Meter                 Hash("ModularDeviceMeter3x3")
+  define  LightDiodeSmall       Hash("ModularDeviceLightSmall")
+
+  define  AreaPowerController   Hash("StructureAreaPowerControl")
+  define  AreaPowerControllerR  Hash("StructureAreaPowerControlReversed")
+  define  LogicMirror           Hash("StructureLogicMirror")
+  define  BackPressureRegulator Hash("StructureBackPressureRegulator")
+  define  VolumePump            Hash("StructureVolumePump")
+  define  PressureRegulator     Hash("StructurePressureRegulator")
+  define  LabelDiode            Hash("ModularDeviceLabelDiode2")
+  define  TransformerSmall      Hash("StructureTransformerSmall")
+  define  TransformerMedium     Hash("StructureTransformerMedium")
+  define  TransformerSmallRev   Hash("StructureTransformerSmallReversed")
+  
+  define  ZERO_C              273.15
+
+  alias   Scratch             r0
+  alias   Scratch2            r1
+  alias   Scratch3            r2
+
+  alias   RoomLights          r4
+  alias   PlantLights         r5
+
+  alias   EmergencyPower      r6
+  alias   NotEmergencyPower   r7
+
+  alias   PeakConsumption     r15
+  alias   LowConsumption      r14
+  alias   ConsumptionCMA      r13 ; continous moving average of electrical consumption
+
+loop:
+  lbn EmergencyPower ToggleSwitch Hash("Emergency Power") Setting Maximum
+  seqz NotEmergencyPower EmergencyPower
+
+  select Scratch EmergencyPower Color.Red Color.Black
+  sbn ToggleSwitch Hash("Emergency Power") Color Scratch
+
+  lbn Scratch AreaPowerControllerR Hash("Auxiliary Systems UPS") Ratio Sum
+  select Scratch Scratch Color.Green Color.Red
+  sbn LightDiodeSmall Hash("Auxiliary UPS Battery Status") Color Scratch
+  
+  lbn Scratch FlipSwitch Hash("Control Power Select") Setting Maximum
+  sbn TransformerSmallRev Hash("CPP External Control Power") On Scratch
+  lerp Scratch2 EmergencyPower 0 Scratch
+  sbn AreaPowerController Hash("Emergency Control Power") On Scratch2
+  lerp Scratch2 NotEmergencyPower 0 Scratch
+  sbn TransformerSmall Hash("Internal Control Power") On Scratch2
+  
+  lbn Scratch FlipSwitch Hash("Machine Power Select") Setting Maximum
+  sbn TransformerMedium Hash("CPP External Machine Power") On Scratch
+  lerp Scratch2 EmergencyPower 0 Scratch
+  sbn AreaPowerController Hash("Emergency Machine Power") On Scratch2
+  lerp Scratch2 NotEmergencyPower 0 Scratch
+  sbn TransformerMedium Hash("CPP Internal Machine Power") On Scratch2
+
+  lbn Scratch CableAnalyzer Hash("External Power") PowerPotential Sum
+  snez Scratch Scratch
+  sbn LightDiodeSmall Hash("External Power Available") On Scratch
+  
+  lbn Scratch CableAnalyzer Hash("Power Consumption") PowerPotential Sum
+  snez Scratch Scratch
+  sbn LightDiodeSmall Hash("Internal Power Available") On Scratch
+  
+  lbn Scratch ToggleSwitch Hash("Control Room Atmos") Setting Maximum
+  sbn PressureRegulator Hash("Control Room") On Scratch
+  sbn BackPressureRegulator Hash("Control Room") On Scratch
+  select Scratch Scratch Color.Green Color.Red
+  sbn ToggleSwitch Hash("Control Room Atmos") Color Scratch
+  
+  lbn Scratch ToggleSwitch Hash("Airlock Atmos") Setting Maximum
+  sbn PressureRegulator Hash("Airlock Fill") On Scratch
+  sbn BackPressureRegulator Hash("Airlock Drain") On Scratch
+  select Scratch Scratch Color.Green Color.Red
+  sbn ToggleSwitch Hash("Airlock Atmos") Color Scratch
+  
+  lbn Scratch ToggleSwitch Hash("Suit Atmos") Setting Maximum
+  sbn PressureRegulator Hash("Suit Fill") On Scratch
+  sbn VolumePump Hash("Suit Waste") On Scratch
+  select Scratch Scratch Color.Green Color.Red
+  sbn ToggleSwitch Hash("Suit Atmos") Color Scratch
+
+  ; Plant depressurize control
+  lbn Scratch ToggleSwitch Hash("Vacuum Pump") Setting Maximum
+  sbn PoweredVent Hash("Vacuum") On Scratch
+  sbn LabelDiode Hash("Vacuum Pump") On Scratch
+  select Scratch Scratch Color.Green Color.Red
+  sbn ToggleSwitch Hash("Vacuum Pump") Color Scratch
+
+  ; Plant pressure gauge
+  lbn Scratch GasSensor Hash("Plant") Pressure Average
+  mul Scratch2 Scratch 1000
+  sbn LEDDisplay2 Hash("Plant Air Pressure") Setting Scratch2
+  sbn LEDDisplay2 Hash("Plant Air Pressure") Mode 14
+  div Scratch2 Scratch 20
+  sbn Gauge3 Hash("Plant Air Pressure") Setting Scratch2
+  slt Scratch Scratch 1
+  select Scratch Scratch Color.Green Color.Red
+  sbn Gauge3 Hash("Plant Air Pressure") Color Scratch
+  sbn LEDDisplay2 Hash("Plant Air Pressure") Color Scratch
+  lbn Scratch GasSensor Hash("Plant") Temperature Average
+  sub Scratch Scratch ZERO_C
+  sbn LEDDisplay2 Hash("Plant Air Temperature") Setting Scratch
+  sbn LEDDisplay2 Hash("Plant Air Temperature") Mode 4
+
+  ; Exhaust/Waste line gauge
+  lbn Scratch PipeAnalyzer Hash("Exhaust Line") Pressure Average
+  mul Scratch2 Scratch 1000
+  sbn LEDDisplay2 Hash("Exhaust Line Pressure") Setting Scratch2
+  sbn LEDDisplay2 Hash("Exhaust Line Pressure") Mode 14
+  div Scratch2 Scratch 1000
+  sbn Gauge3 Hash("Exhaust Line Pressure") Setting Scratch2
+  slt Scratch Scratch 500
+  select Scratch Scratch Color.Green Color.Red
+  sbn Gauge3 Hash("Exhaust Line Pressure") Color Scratch
+  lbn Scratch PipeAnalyzer Hash("Exhaust Line") Temperature Average
+  sub Scratch Scratch ZERO_C
+  sbn LEDDisplay2 Hash("Exhaust Line Temperature") Setting Scratch
+  sbn LEDDisplay2 Hash("Exhaust Line Temperature") Mode 4
+
+  ; Read control room occupancy, and turn off modular displays if nobody's here to see them
+  lbn Scratch OccupancySensor Hash("Control Room") Quantity Maximum
+  snez RoomLights Scratch
+  sb DiodeSlide2 On RoomLights
+  sb DiodeSlide On RoomLights
+  sb LEDDisplay2 On RoomLights
+  sb LEDDisplay3 On RoomLights
+
+  ; Now operate the control room lights
+  lbn Scratch ToggleSwitch Hash("Control Room Lights Override") Setting Maximum
+  select Scratch2 Scratch Color.Orange Color.Black
+  sbn ToggleSwitch Hash("Control Room Lights Override") Color Scratch2
+  or RoomLights RoomLights Scratch
+
+  sbn LongLight Hash("Control Room") On RoomLights
+  sbn Light Hash("Control Room") On RoomLights
+  sbn LightDiodeSmall Hash("Control Room Lights") On RoomLights
+
+  ; Plant room(s) lights
+  lbn Scratch OccupancySensor Hash("Plant") Quantity Maximum
+  snez PlantLights Scratch
+  lbn Scratch ToggleSwitch Hash("Plant Lights Override") Setting Maximum
+  select Scratch2 Scratch Color.Orange Color.Black
+  sbn ToggleSwitch Hash("Plant Lights Override") Color Scratch2
+  or PlantLights PlantLights Scratch
+
+  sbn LongLight Hash("Plant") On PlantLights
+  sbn LongAngledLight Hash("Plant") On PlantLights
+  sbn LightDiodeSmall Hash("Plant Lights") On PlantLights
+
+  ; Control airlock lights based on occupancy of airlock and the room it's open to
+  lbn Scratch OccupancySensor Hash("Airlock") Quantity Maximum
+  lbn Scratch2 ToggleSwitch Hash("Airlock Light Override") Setting Maximum
+  select Scratch3 Scratch2 Color.Orange Color.Black
+  sbn ToggleSwitch Hash("Airlock Light Override") Color Scratch3
+  snez Scratch Scratch
+  or Scratch Scratch Scratch2
+  lbn Scratch2 Airlock Hash("Plant Access") Open Maximum
+  select Scratch2 Scratch2 PlantLights RoomLights
+  or Scratch2 Scratch Scratch2
+
+  sbn LongLight Hash("Airlock") On Scratch2
+  sbn LightDiodeSmall Hash("Airlock Light") On Scratch2
+
+  ; Power statistics monitoring - track peak/low consumption w/ reset as well as average (continuous moving variety) power use
+  lbn Scratch PushButtonSquare Hash("Reset Power Statistics") Setting Sum
+  lbn Scratch2 CableAnalyzer Hash("Power Consumption") PowerActual Sum
+
+  select PeakConsumption Scratch Scratch2 PeakConsumption
+  select LowConsumption Scratch Scratch2 LowConsumption
+  select ConsumptionCMA Scratch Scratch2 ConsumptionCMA
+
+  max PeakConsumption PeakConsumption Scratch2
+  min LowConsumption LowConsumption Scratch2
+  lerp ConsumptionCMA ConsumptionCMA Scratch2 0.125
+
+  sbn LEDDisplay3 Hash("Maximum Consumption") Setting PeakConsumption
+  sbn LEDDisplay3 Hash("Minimum Consumption") Setting LowConsumption
+  sbn LEDDisplay3 Hash("Average Consumption") Setting ConsumptionCMA
+
+  lbn Scratch CableAnalyzer Hash("Machine Power") PowerActual Sum
+  sbn Meter Hash("Machine Power") Setting Scratch
+  lbn Scratch CableAnalyzer Hash("Control Power") PowerActual Sum
+  sbn Meter Hash("Control Power") Setting Scratch
+  sb Meter Color Color.White
+
+  lbn Scratch CableAnalyzer Hash("Power Consumption") PowerActual Sum
+  s db Setting Scratch
+  j loop

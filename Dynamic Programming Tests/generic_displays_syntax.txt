@@ -1,0 +1,124 @@
+Int:
+  /[-+]?[0-9]+/
+
+Constant:
+  /[-+]?([0-9]+\.)?[0-9]+/
+
+Name:
+  /[a-zA-Z]+/
+
+DataTable:
+  "," Constant DataTable
+  "]"
+
+Table
+  Constant DataTable
+
+Array:
+  "[" DataTable
+
+Symbol:
+  "let" Name "references" Constant
+  "let" Name "reference" Constant
+  "let" Name "ref" Constant
+  "let" Name "=" Constant
+  "let" Name "=" "alloc" "(" Constant ")"  -- Ask the assembler to allocate a memory address for you, or an empty table
+  "let" Name "=" "table" "[" Table -- alloc but the table is pre-filled by you
+  "let" Name "=" "bucket" "[" Table
+
+ReferenceId:
+  Constant
+  Name -- where matches known Symbol
+
+StructureType:
+  Name -- where not matches known Symbols
+
+NamedStructure:
+  StructureType "." Name
+
+PropertyReference: (R/W)
+  ReferenceId "::" Name
+
+SlotPropertyReference: (R/W)
+  ReferenceId ":" Constant ":" Name
+
+BatchType
+  Sum
+  Maximum
+  Max
+  Minimum
+  Min
+  Average
+  Avg
+
+Accumulator:
+  "Acc"
+  "Accumulator"
+
+Register (R/W):
+  Accumulator
+  /r(1[0-5]:[0-9])/
+  "Blinker"
+
+StackMem1:
+  Constant [ "+" Accumulator ]
+  Constant [ "+" PropertyReference ]
+  PropertyReference [ "+" Constant ]
+  Accumulator [ "+" Constant ]
+
+Stack: (R/W)
+  "$" "[" StackMem1 "]"
+
+Memory (R/W):
+  Stack
+  ReferenceId "[" Constant "]"
+
+Reference (R/W):
+  PropertyReference
+  SlotPropertyReference
+  NamedStructure "::" Name
+  Register
+  Memory
+
+BucketValues:
+  Constant
+  Constant BucketValues
+
+BucketData:
+  "[" BucketValues "]"
+
+Value (R/O):
+  Constant
+  Reference
+  BatchType "(" StructureType "::" Name ")"
+  "Switch(" ReferenceId "," Name ")"
+  "Bucket(" Value "," Constant "," Name ")"
+
+Destination (W/O):
+  Meter(ReferenceId, Constant, Value)
+  Reference
+  StructureType "::" Name
+
+Assignment:
+  "<-"
+  "="
+  ":="
+
+Adjustment:
+  "*" Constant
+  "/" Constant
+  "+" Constant
+  "-" Constant
+
+Math:
+  Adjustment
+  Adjustment [Math]
+
+Expression:
+  Dial(ReferenceId, MemDest)
+  Value
+  Value "maps" Constant "," Constant -- func_select_uint/func_select_double based on constants
+
+Statement:
+  Symbol
+  Destination Assignment Expression Math

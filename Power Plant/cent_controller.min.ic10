@@ -1,0 +1,127 @@
+poke 1 1382116720
+poke 2 1148546416
+poke 3 5404014
+poke 4 5203558
+poke 6 Color.White
+poke 7 Color.Orange
+poke 8 Color.Green
+poke 9 Color.Red
+move sp 15
+move r9 10
+move r6 265720906
+jal 115
+move r6 690945935
+jal 115
+move r6 813146305
+jal 115
+move r6 -1768478959
+jal 115
+move r6 -422840069
+jal 115
+yield
+sb 163728359 Setting 0
+lbn r15 -228558895 -213314203 Setting Sum
+mul r2 r15 2
+sb -2020231820 Setting r2
+lb r2 163728359 Mode Maximum
+bnez r2 28
+sb 163728359 Mode 1
+lb r14 265720906 Power Maximum
+sb 163728359 On r14
+sb -2020231820 On r14
+select r2 r14 1231318117 1400139632
+poke 0 r2
+select r2 r14 Color.White Color.Red
+poke 5 r2
+lbn r13 -744941205 -1082806399 Setting Maximum
+select r2 r13 Color.Yellow Color.Black
+sbn -744941205 -1082806399 Color r2
+and r13 r13 r14
+lb r2 -1768478959 PowerActual Sum
+sbn 938844862 -2097158684 Setting r2
+sbn 938844862 -2097158684 Mode 2
+get sp db 14
+get r4 db 13
+pop r0
+l r1 r0 NameHash
+lbn r6 -744941205 r1 Setting Sum
+seqz r6 r6
+s r0 On r6
+select r2 r6 Color.Green Color.Red
+sbn -744941205 r1 Color r2
+lbn r7 -228558895 r1 Setting Sum
+mul r7 r7 1000
+s r0 Setting r7
+bgt sp r4 44
+get r4 db 12
+pop r0
+l r1 r0 NameHash
+l r6 r0 Ratio
+sbn 938844862 r1 Setting r6
+bgt sp r4 62
+get r4 db 11
+pop r0
+l r1 r0 NameHash
+ls r7 r0 0 Quantity
+div r7 r7 r15
+sbn 231008932 r1 Setting r7
+lbn r6 -744941205 r1 Setting Maximum
+s r0 On r6
+select r2 r6 Color.Green Color.Red
+sbn -744941205 r1 Color r2
+select r2 r7 3 0
+select r2 r6 r2 5
+get r3 db r2
+sbn 1437931107 r1 Setting r3
+sbn 1437931107 r1 Mode 10
+add r2 r2 5
+get r3 db r2
+sbn 1437931107 r1 Color r2
+bgt sp r4 62
+get r4 db 10
+pop r0
+l r1 r0 NameHash
+ls r6 r0 0 Quantity
+l r7 r0 Reagents
+sge r9 r7 400
+seqz r8 r6
+snez r7 r7
+move r2 r8
+ins r2 r7 1 1
+seq r3 r2 2
+or r3 r3 r9
+s r0 Open r3
+seq r3 r2 0
+select r3 r3 r13 1
+s r0 On r3
+sub r3 200 r6
+div r3 r3 200
+sbn 938844862 r1 Setting r3
+get r3 db r2
+sbn 1437931107 r1 Setting r2
+sbn 1437931107 r1 Mode 10
+add r2 r2 5
+get r3 db r2
+sbn 1437931107 r1 Color r2
+sbn 938844862 r1 Color r2
+bgt sp r4 81
+pop r0
+l r1 r0 NameHash
+lbn r6 -744941205 r1 Setting Maximum
+s r0 On r6
+select r2 r6 Color.Green Color.Red
+sbn -744941205 r1 Color r2
+bgt sp 15 107
+j 20
+move r7 -1
+lb r8 r6 PrefabHash Sum
+add r7 r7 1
+get r0 db:0 r7
+l r10 r0 PrefabHash
+bne r10 r6 117
+push r0
+sub r8 r8 r6
+bnez r8 117
+poke r9 sp
+add r9 r9 1
+j ra

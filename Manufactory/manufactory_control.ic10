@@ -1,0 +1,188 @@
+  alias   Mod_LowIngotHash              Channel0
+  alias   Mod_LowIngotAmount            Channel1
+  alias   Mod_AutomaticMode             Channel2
+
+  alias   Mod_PrinterPrefabHash         Channel4
+  alias   Mod_PrinterMetaCommand        Channel5
+  alias   Mod_ReqItemHash               Channel6
+  alias   Mod_ReqItemCount              Channel7
+
+  define  SP_PRINTERS_PTR               0
+  define  SP_JOB_REQ                    1
+  define  SP_JOB_QTY                    2
+  define  SP_JOB_PTR_HSH                3
+  define  SP_LOW_STOCK_HASH             4
+
+  define  SP_PRINTERS_TABLE             10
+  define  SP_INGOT_TABLE                360
+  define  SP_INGOT_TABLE_END            377
+  define  SP_STOCK_TABLE                300
+  define  SP_STOCK_TABLE_END            354
+
+  define  INGOT_MODULUS                 54
+  define  VEND_TIME                     5
+
+  define  LogicMemory                   Hash("StructureLogicMemory")
+  define  FoundryConnector              Hash("Foundry Data Link")
+
+  alias   IngotStorage                  d0
+
+  alias   Scratch                       r0
+  alias   Scratch2                      r1
+  alias   Scratch3                      r2
+  alias   Scratch4                      r3
+
+  alias   LowStockIngotHash             r8
+  alias   LowStockIngotQuantity         r9
+  alias   LowInterfaceIngotHash         r10
+  alias   LowInterfaceRefId             r11
+  alias   LowInterfaceQuantity          r12
+  alias   QueuedJobPrinterHash          r13
+  alias   PrinterInterfaceRefId         r14
+  alias   VendTimeout                   r15
+
+  move sp SP_INGOT_TABLE
+  push Hash("ItemWaspaloyIngot")
+  push Hash("ItemHastelloyIngot")
+  push Hash("ItemInconelIngot")
+  push Hash("ItemAstroloyIngot")
+  push Hash("ItemStelliteIngot")
+  push Hash("ItemInvarIngot")
+  push Hash("ItemLeadIngot")
+  push Hash("ItemNickelIngot")
+  push Hash("ItemSilverIngot")
+  push Hash("ItemConstantanIngot")
+  push Hash("ItemElectrumIngot")
+  push Hash("ItemSolderIngot")
+  push Hash("ItemSiliconIngot")
+  push Hash("ItemGoldIngot")
+  push Hash("ItemSteelIngot")
+  push Hash("ItemCopperIngot")
+  push Hash("ItemIronIngot")
+
+  sbn LogicMemory FoundryConnector Setting 0
+
+wait_exportcount_loop:
+  brdns d0 0 ; Wait for vending machine to be connected
+  bdnvl d0 ExportCount wait_exportcount_loop ; And wait for it to be a vending machine
+  lb Scratch LogicMemory PrefabHash Sum
+  sub Scratch Scratch LogicMemory ; Account for the foundry data connector
+  move Scratch2 -1
+  move sp SP_PRINTERS_TABLE
+
+search_loop:
+  add Scratch2 Scratch2 1
+  get Scratch3 db:0 Scratch2
+  l Scratch4 Scratch3 PrefabHash
+  bne Scratch4 LogicMemory search_loop
+  l Scratch4 Scratch3 NameHash
+  beq Scratch4 FoundryConnector search_loop
+  push Scratch3
+  sub Scratch Scratch LogicMemory
+  bnez Scratch search_loop
+  poke SP_PRINTERS_PTR sp
+
+main_loop:
+  sgtz Scratch VendTimeout
+  sub VendTimeout VendTimeout Scratch
+  bgtz VendTimeout no_vend
+
+  get QueuedJobPrinterHash db SP_JOB_PTR_HSH
+  get sp db SP_PRINTERS_PTR
+
+  move LowInterfaceIngotHash 0
+  move LowInterfaceQuantity 999999
+
+printer_loop:
+  ble sp SP_PRINTERS_TABLE end_printer_loop
+  pop PrinterInterfaceRefId
+  l Scratch PrinterInterfaceRefId:1 Mod_PrinterPrefabHash
+  bne Scratch QueuedJobPrinterHash no_dispatch
+  l Scratch PrinterInterfaceRefId:1 Mod_ReqItemCount
+  bnez Scratch no_dispatch
+  bnan Scratch no_dispatch ; IC10 not running properly if NaN
+  l Scratch PrinterInterfaceRefId:1 Mod_AutomaticMode
+  beqz Scratch no_dispatch
+  bnan Scratch no_dispatch ; IC10 not running properly if NaN
+  get Scratch db SP_JOB_REQ
+  s PrinterInterfaceRefId:1 Mod_ReqItemHash Scratch
+  get Scratch db SP_JOB_QTY
+  s PrinterInterfaceRefId:1 Mod_ReqItemCount Scratch
+  move QueuedJobPrinterHash 0
+  poke SP_JOB_PTR_HSH 0
+  poke SP_JOB_REQ 0
+  poke SP_JOB_QTY 0
+
+no_dispatch:
+  l Scratch PrinterInterfaceRefId:1 Mod_LowIngotHash
+  bnan Scratch printer_loop
+  mod Scratch2 Scratch INGOT_MODULUS
+  add Scratch2 Scratch2 SP_STOCK_TABLE
+  get Scratch3 db Scratch2
+  beqz Scratch3 printer_loop ; Check available quantity and filter out requests we can't fulfill
+  l Scratch PrinterInterfaceRefId:1 Mod_LowIngotAmount
+  bnan Scratch printer_loop
+  bgt Scratch LowInterfaceQuantity printer_loop
+  move LowInterfaceQuantity Scratch
+  l LowInterfaceIngotHash PrinterInterfaceRefId:1 Mod_LowIngotHash
+  move LowInterfaceRefId PrinterInterfaceRefId
+  j printer_loop
+
+end_printer_loop:
+
+  beqz LowInterfaceIngotHash no_vend
+  s d0 RequestHash LowInterfaceIngotHash
+  yield
+  yield
+  yield
+  l Scratch d0 ExportCount
+  s LowInterfaceRefId:1 Mod_PrinterMetaCommand Scratch
+  s d0 ClearMemory 1
+  select VendTimeout Scratch VEND_TIME 0
+
+no_vend:
+  move sp SP_STOCK_TABLE
+
+clear_loop:
+  push 0
+  blt sp SP_STOCK_TABLE_END clear_loop
+
+  move Scratch 102
+
+stock_sum_loop:
+  sub Scratch Scratch 1
+  blt Scratch 2 end_sum_loop
+  ls Scratch2 d0 Scratch Quantity
+  beqz Scratch2 stock_sum_loop
+  ls Scratch3 d0 Scratch PrefabHash
+  mod Scratch3 Scratch3 INGOT_MODULUS
+  add Scratch3 Scratch3 SP_STOCK_TABLE
+  get Scratch4 db Scratch3
+  add Scratch4 Scratch2 Scratch4
+  poke Scratch3 Scratch4
+  j stock_sum_loop
+
+end_sum_loop:
+
+  move LowStockIngotHash 0
+  move LowStockIngotQuantity 1000 ; We want at least 1kg of all ingots in storage
+  move sp SP_INGOT_TABLE_END
+
+scan_loop:
+  pop Scratch
+  mod Scratch2 Scratch INGOT_MODULUS
+  add Scratch2 Scratch2 SP_STOCK_TABLE
+  get Scratch3 db Scratch2
+  bge Scratch3 LowStockIngotQuantity no_select
+
+  move LowStockIngotHash Scratch
+  move LowStockIngotQuantity Scratch3
+
+no_select:
+  bgt sp SP_INGOT_TABLE scan_loop
+
+  sbn LogicMemory FoundryConnector Setting LowStockIngotHash
+  s db Setting LowStockIngotQuantity
+
+  yield
+  j main_loop

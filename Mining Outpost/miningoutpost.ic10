@@ -1,0 +1,269 @@
+  define  SP_STRINGS                0
+  define  SP_COLORS                 5
+  define  SP_DRILLS                 10 ; Pointer to end of drills table
+  define  SP_CENTRIFUGES            11 ; Pointer to end of centrifuges table
+  define  SP_GENERATORS             12 ; Pointer to end of generators table
+  define  SP_BATTERIES              13 ; Pointer to end of batteries table
+  define  SP_TRANSFORMERS           14 ; Pointer to end of transformers table
+  define  SP_FURNACES               15 ; Pointer to end of furnaces table
+  define  SP_REFERENCEIDS           16 ; Start of RefId tables
+
+  define  DeepMiner                 Hash("StructureDeepMiner")
+  define  Centrifuge                Hash("StructureCentrifuge")
+  define  Generator                 Hash("StructureSolidFuelGenerator")
+  define  Battery                   Hash("StructureBatteryLarge")
+  define  Transformer               Hash("StructureTransformer")
+  define  CableAnalyzer             Hash("StructureCableAnalysizer")
+  define  CentSplitter              Hash("StructureChuteDigitalFlipFlopSplitterRight")
+  define  DiodeSlide2               Hash("ModularDeviceSliderDiode2")
+  define  DiodeSlide                Hash("ModularDeviceSliderDiode1")
+  define  LEDDisplay2               Hash("ModularDeviceLEDdisplay2")
+  define  LEDDisplay3               Hash("ModularDeviceLEDdisplay3")
+  define  ToggleSwitch              Hash("ModularDeviceSwitch")
+  define  FlipSwitch                Hash("ModularDeviceFlipSwitch")
+  define  Gauge                     Hash("ModularDeviceGauge2x2")
+  define  Dial                      Hash("ModularDeviceDialSmall")
+  define  DialLarge                 Hash("ModularDeviceDial")
+  define  Stacker                   Hash("StructureStackerReverse")
+  define  ArcFurnace                Hash("StructureArcFurnace")
+  define  Silo                      Hash("StructureSDBSilo")
+  define  HashGenerator             Hash("StructureLogicHashGen")
+  define  LightDiodeSmall           Hash("ModularDeviceLightSmall")
+  define  LogicTransmitter          Hash("StructureLogicTransmitter")
+
+  define  INGOT_MODULUS             2383201 ; Used for both MOD 8 and MOD 9 later on, hence being so huge
+
+  ; Volatile data
+  alias   devRefId                  r0
+  alias   devNameHash               r1
+  alias   scratch                   r2
+  alias   scratch2                  r3
+  alias   table_end                 r4
+
+  ; These are used in non-overlapping areas of the controller.  Also,
+  ; they don't persist so it's okay to overlap the register assignments
+  alias   centr_queue               r6
+  alias   centr_result              r7
+  alias   centr_empty               r8
+  alias   centr_full                r9
+
+  alias   drill_enab                r6
+
+  alias   generator_enab            r6
+  alias   generator_fuel            r7
+
+  alias   battery_level             r6
+
+  alias   xfmr_enab                 r6
+  alias   xfmr_sp                   r7
+  alias   xfmr_actual               r8
+
+  alias   findPrefab                r6
+  alias   networkIdx                r7
+  alias   networkCount              r8
+  alias   devTableIdx               r9
+  alias   devPrefab                 r10
+
+  ; Persistent data that is kept throughout a scan cycle
+  alias   qty_ptr                   r13
+  alias   any_drills                r14
+  alias   batch_size                r15
+
+  ; SP=0 set by code
+  poke 1 STR("Start")
+  poke 2 STR("Eject")
+  poke 3 STR("Run")
+  poke 4 STR("Off")
+
+  ; SP=5 set by code
+  poke 6 Color.Yellow
+  poke 7 Color.Blue
+  poke 8 Color.Green
+  poke 9 Color.Red
+
+  ; Init for prefab finding
+  move sp SP_REFERENCEIDS
+  move devTableIdx SP_DRILLS
+
+  ; Find drills
+  move findPrefab DeepMiner
+  jal prefab_search
+
+  ; Find centrifuges
+  move findPrefab Centrifuge
+  jal prefab_search
+
+  ; Find generators
+  move findPrefab Generator
+  jal prefab_search
+
+  ; Find batteries
+  move findPrefab Battery
+  jal prefab_search
+
+  ; Find transformers
+  move findPrefab Transformer
+  jal prefab_search
+
+  ; Find arc furnaces & Silos
+  move findPrefab ArcFurnace
+  jal prefab_search
+
+  get qty_ptr db SP_FURNACES
+
+main_loop:
+  yield
+
+  lb any_drills DeepMiner Power Maximum
+  select scratch any_drills Str("Idle") Str("Stop")
+  poke SP_STRINGS scratch
+  select scratch any_drills Color.White Color.Red
+  poke SP_COLORS scratch
+
+  get sp db SP_FURNACES
+  get table_end db SP_TRANSFORMERS
+
+furnace_loop:
+  pop devRefId
+  l devNameHash devRefId NameHash
+  ls scratch devRefId 0 Occupied
+  s devRefId Activate scratch
+  sbn LightDiodeSmall devNameHash On scratch
+  sbn LEDDisplay2 devNameHash On scratch
+  ls scratch devRefId 0 Quantity
+  sbn LEDDisplay2 devNameHash Setting scratch
+  lbn scratch2 Silo devNameHash Quantity Sum
+  sbn LEDDisplay3 devNameHash Setting scratch2
+  bne sp qty_ptr no_report
+  lbn scratch HashGenerator devNameHash Setting Sum
+  mod scratch scratch INGOT_MODULUS
+  ins scratch scratch2 22 10
+  sbn LogicTransmitter Hash("Site Taos Stock Transmitter") Setting scratch
+
+no_report:
+  bgt sp table_end furnace_loop
+
+  sub qty_ptr qty_ptr 1
+  bge qty_ptr table_end no_loop_qty
+  add qty_ptr table_end 6
+
+no_loop_qty:
+
+  get table_end db SP_BATTERIES
+
+transformer_loop:
+  pop devRefId
+  l devNameHash devRefId NameHash
+  lbn xfmr_enab FlipSwitch devNameHash Setting Sum
+  s devRefId On xfmr_enab
+  lbn xfmr_actual CableAnalyzer devNameHash PowerActual Average
+  sbn LEDDisplay3 devNameHash Setting xfmr_actual
+  sbn LEDDisplay3 devNameHash Mode 2
+  bgt sp table_end transformer_loop
+
+  get table_end db SP_GENERATORS
+
+battery_loop:
+  pop devRefId
+  l devNameHash devRefId NameHash
+  l battery_level devRefId Ratio
+  sbn DiodeSlide2 devNameHash Setting battery_level
+  bgt sp table_end battery_loop
+
+  get table_end db SP_CENTRIFUGES
+
+generator_loop:
+  pop devRefId
+  l devNameHash devRefId NameHash
+
+  ls generator_fuel devRefId 0 Quantity
+  div generator_fuel generator_fuel 200
+  sbn Gauge devNameHash Setting generator_fuel
+
+  lbn generator_enab ToggleSwitch devNameHash Setting Maximum
+  s devRefId On generator_enab
+  select scratch generator_enab Color.Green Color.Red
+  sbn ToggleSwitch devNameHash Color scratch
+
+  select scratch generator_fuel 3 0
+  select scratch generator_enab scratch 4
+
+  get scratch2 db scratch
+  sbn LEDDisplay2 devNameHash Setting scratch2
+  sbn LEDDisplay2 devNameHash Mode 10 ; String display mode
+  add scratch scratch SP_COLORS
+  get scratch2 db scratch
+  sbn LEDDisplay2 devNameHash Color scratch2
+  sbn Gauge devNameHash Color scratch2
+
+  bgt sp table_end generator_loop
+
+  get table_end db SP_DRILLS
+
+centrifuge_loop:
+  pop devRefId
+  l devNameHash devRefId NameHash
+  ls scratch devRefId 0 Occupied
+  l centr_result devRefId Reagents
+  sge centr_full centr_result 395
+  snez scratch scratch
+
+  div scratch2 centr_result 200
+  sbn DiodeSlide devNameHash Setting scratch2
+
+  snez centr_result centr_result
+
+  ; Calculate mode enum
+  ins scratch 1 1 centr_result
+
+  ; Open centrifuge if it has no queue and output result, or if it somehow got full
+  seq scratch2 scratch 2
+  or scratch2 scratch2 centr_full
+  s devRefId Open scratch2
+
+  ; If the drills are all turned off (or if warm idle is disabled), then idle the centrifuges to save power if they aren't processing
+  s devRefId On scratch
+
+  ; Now update the panel displays for this centrifuge
+  ; Processing Queue
+
+  ; Mode string
+  get scratch2 db scratch
+  sbn LEDDisplay2 devNameHash Setting scratch2
+  sbn LEDDisplay2 devNameHash Mode 10 ; String display mode
+
+  ; Mode Color
+  add scratch scratch SP_COLORS
+  get scratch2 db scratch
+  sbn LEDDisplay2 devNameHash Color scratch2
+  sbn DiodeSlide devNameHash Color scratch2
+  bgt sp table_end centrifuge_loop
+
+  ; Now handle the drills
+drill_loop:
+  pop devRefId
+  l devNameHash devRefId NameHash
+  lbn drill_enab ToggleSwitch devNameHash Setting Maximum
+  s devRefId On drill_enab
+  select scratch drill_enab Color.Green Color.Red
+  sbn ToggleSwitch devNameHash Color scratch
+  bgt sp SP_REFERENCEIDS drill_loop
+
+  j main_loop
+
+prefab_search:
+  move networkIdx -1
+  lb networkCount findPrefab PrefabHash Sum
+
+_prefab_search_loop:
+  add networkIdx networkIdx 1
+  get devRefId db:0 networkIdx
+  l devPrefab devRefId PrefabHash
+  bne devPrefab findPrefab _prefab_search_loop
+  push devRefId
+  sub networkCount networkCount findPrefab
+  bnez networkCount _prefab_search_loop
+  poke devTableIdx sp
+  add devTableIdx devTableIdx 1
+  j ra
+

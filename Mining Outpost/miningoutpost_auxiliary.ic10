@@ -1,0 +1,99 @@
+  define  LogicTransmitter          Hash("StructureLogicTransmitter")
+  define  Centrifuge                Hash("StructureCentrifuge")
+  define  Generator                 Hash("StructureSolidFuelGenerator")
+  define  Battery                   Hash("StructureBatteryLarge")
+  define  CableAnalyzer             Hash("StructureCableAnalysizer")
+  define  DeepMiner                 Hash("StructureDeepMiner")
+  define  Silo                      Hash("StructureSDBSilo")
+  define  Transformer               Hash("StructureTransformer")
+  define  CompactHousing            Hash("StructureCircuitHousingCompact")
+  define  Stacker                   Hash("StructureStackerReverse")
+  define  Stacker2                  Hash("StructureStacker")
+  define  Sorter                    Hash("StructureSorter")
+  define  ArcFurnace                Hash("StructureArcFurnace")
+
+  define  PKT_AVGCHARGE             0 ; Average battery ratio (charge %), scaled 0-255
+  define  PKT_SUMPOWER              1 ; Sum power use, in watts
+  define  PKT_ALARMS                2 ; Alarm flags (bit packed)
+  define  PKT_UTILIZATION           3 ; Number of active centrifuges
+  define  PKT_FLAGS                 4 ; Non-alarm Status flags (bit packed)
+
+  define  ALM_LOW_BATTERY           256 ; Battery power low (< 30% average)
+  define  ALM_GEN_WD                512 ; Generator watchdog (no power production within 600 ticks)
+  define  ALM_DRILL_OFF             1024 ; Drill is off
+  define  ALM_CIRCUIT_OFF           2048 ; One or more trains is offline
+  define  ALM_CPU_FAIL              4096 ; Main controller fault
+
+  define  FLAG_GENERATOR            256 ; Generator run status
+  define  FLAG_SILO_FULL            512 ; Silo Quantity Maximum > 550
+
+  alias   Generator_Timer           r14
+
+  poke PKT_UTILIZATION proc_utilization
+  poke PKT_AVGCHARGE proc_charge
+  poke PKT_SUMPOWER proc_avgpower
+  poke PKT_ALARMS proc_alarms
+  poke PKT_FLAGS proc_flags
+
+  move r0 0
+
+loop:
+  sb Stacker On 1
+  sb Stacker2 On 1
+  sb ArcFurnace On 1
+  sb Sorter On 1
+  sb Silo On 1
+  ins r0 sp 0 8
+  sbn LogicTransmitter Hash("Site Taos Auxiliary Transmitter") Setting r0
+  yield
+  select sp sp sp 5
+  pop ra
+  j ra
+
+proc_charge:
+  lb r0 Battery Ratio Average
+  mul r0 r0 65536
+  j loop
+
+proc_avgpower:
+  lb r0 CableAnalyzer PowerActual Sum
+  mul r0 r0 65536
+  j loop
+
+proc_alarms:
+  move r0 0
+  lb r1 DeepMiner Power Minimum
+  brgtz r1 2
+  or r0 r0 ALM_DRILL_OFF
+  lb r1 Battery Ratio Average
+  brgt r1 0.3 2
+  or r0 r0 ALM_LOW_BATTERY
+  lbs r1 Generator 0 Quantity Sum
+  breqz r1 2
+  move Generator_Timer 0
+  add Generator_Timer Generator_Timer 1
+  brlt Generator_Timer 600 2
+  or r0 r0 ALM_GEN_WD
+  lb r1 Transformer On Minimum
+  brgtz r1 2
+  or r0 r0 ALM_CIRCUIT_OFF
+  lb r1 CompactHousing Error Maximum
+  brlez r1 2
+  or r0 r0 ALM_CPU_FAIL
+  j loop
+
+proc_utilization:
+  lb r0 Centrifuge On Sum
+  mul r0 r0 65536
+  j loop
+
+
+proc_flags:
+  move r0 0
+  lb r1 Silo Quantity Maximum
+  brlt r1 550 2
+  or r0 r0 FLAG_SILO_FULL
+  lbs r1 Generator 0 Quantity Sum
+  beqz r1 2
+  or r0 r0 FLAG_GENERATOR
+  j loop

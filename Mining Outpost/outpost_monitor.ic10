@@ -1,0 +1,223 @@
+  define  LabelCoal                 Hash("Coal")
+  define  LabelSilver               Hash("Silver")
+  define  LabelSilicon              Hash("Silicon")
+  define  LabelNickel               Hash("Nickel")
+  define  LabelLead                 Hash("Lead")
+  define  LabelIron                 Hash("Iron")
+  define  LabelGold                 Hash("Gold")
+  define  LabelCopper               Hash("Copper")
+  define  LabelCobalt               Hash("Cobalt")
+
+  define  ItemCoal                  Hash("ItemCoalOre")
+  define  ItemSilver                Hash("ItemSilverIngot")
+  define  ItemSilicon               Hash("ItemSiliconIngot")
+  define  ItemNickel                Hash("ItemNickelIngot")
+  define  ItemLead                  Hash("ItemLeadIngot")
+  define  ItemIron                  Hash("ItemIronIngot")
+  define  ItemGold                  Hash("ItemGoldIngot")
+  define  ItemCopper                Hash("ItemCopperIngot")
+  define  ItemCobalt                Hash("ItemCobaltOre")
+
+  define  LEDDisplay2               Hash("ModularDeviceLEDdisplay2")
+  define  LEDDisplay3               Hash("ModularDeviceLEDdisplay3")
+  define  LabelDiode2               Hash("ModularDeviceLabelDiode2")
+  define  LabelDiode3               Hash("ModularDeviceLabelDiode3")
+  define  LightDiodeSmall           Hash("ModularDeviceLightSmall")
+  define  LogicTransmitter          Hash("StructureLogicTransmitter")
+  define  LogicMemory               Hash("StructureLogicMemory")
+
+  define  SP_STOCKTABLE             100 ; Table for stock delta tracking
+  define  SP_ALARMTABLE             150 ; Table for alarm label diode name hashes
+  define  SP_COLORTABLE             160 ; Table for alarm label diode colors
+  define  SP_LOOKUPTABLE            200 ; Storage location in RAM for the Stock->LCD NameHash table
+  define  SP_GAUGETABLE             250 ; Table for LED display name hashes
+  define  SP_GAUGEMODES             275 ; Mode settings for displays
+  define  SP_GAUGECOLORS            300 ; Color settings for displays
+
+  define  INGOT_BASE_MODULUS        2383201
+  define  INGOT_DISPLAY_MODULUS     9
+  define  INGOT_NETWORK_MODULUS     8
+  define  LABEL_MODULUS             21
+
+  define  PKT_AVGCHARGE             0 ; Average battery ratio (charge %), scaled 0-255
+  define  PKT_SUMPOWER              1 ; Sum power use, in watts
+  define  PKT_ALARMS                2 ; Alarm flags (bit packed)
+  define  PKT_UTILIZATION           3 ; Number of active centrifuges
+  define  PKT_FLAGS                 4 ; Non-alarm Status flags (bit packed)
+
+  define  ALMIDX_LOW_BATTERY        0 ; Battery power low (< 30% average)
+  define  ALMIDX_GEN_WD             1 ; Generator watchdog (no power production within 800 ticks)
+  define  ALMIDX_DRILL_OFF          2 ; Drill is off
+  define  ALMIDX_CIRCUIT_OFF        3 ; One or more trains is offline
+  define  ALMIDX_CPU_FAIL           4 ; Main controller fault
+
+  define  FLAGIDX_GENERATOR         6 ; Generator Run Status
+  define  FLAGIDX_SILOFULL          7 ; Silo Full Flag
+
+  define  DISPLAYMODE_PERCENTAGE    1 ; Percentage Display Mode
+  define  DISPLAYMODE_POWER         2
+  define  DISPLAYMODE_NUMERIC       0
+
+  define  StockReceiver             Hash("Stock Stream Receiver")
+  define  StatusReceiver            Hash("Status Stream Receiver")
+
+  alias   PrevStock                 r15
+  alias   PrevStatus                r14
+
+  alias   StockStuck                r13
+  alias   StatusStuck               r12
+
+  alias   ForceNetwork              r11
+
+macro alarm AlmIdx NameHash Color
+  poke CALC(SP_ALARMTABLE+AlmIdx) NameHash
+  poke CALC(SP_COLORTABLE+AlmIdx) Color
+endmacro
+
+macro lookup Label Item
+  poke CALC(Item%INGOT_BASE_MODULUS%INGOT_DISPLAY_MODULUS+SP_LOOKUPTABLE) Label
+endmacro
+
+macro gauge Packet NameHash Mode Color
+  poke CALC(SP_GAUGETABLE+Packet) NameHash
+  poke CALC(SP_GAUGEMODES+Packet) Mode
+  poke CALC(SP_GAUGECOLORS+Packet) Color
+endmacro
+
+  lookup LabelCoal ItemCoal
+  lookup LabelSilver ItemSilver
+  lookup LabelSilicon ItemSilicon
+  lookup LabelNickel ItemNickel
+  lookup LabelLead ItemLead
+  lookup LabelIron ItemIron
+  lookup LabelGold ItemGold
+  lookup LabelCopper ItemCopper
+  lookup LabelCobalt ItemCobalt
+
+  alarm ALMIDX_LOW_BATTERY Hash("LOW BATTERY") Color.Orange
+  alarm ALMIDX_GEN_WD Hash("NO GENERATION") Color.Red
+  alarm ALMIDX_DRILL_OFF Hash("DRILL STOPPED") Color.Yellow
+  alarm ALMIDX_CIRCUIT_OFF Hash("CIRCUIT DOWN") Color.Orange
+  alarm ALMIDX_CPU_FAIL Hash("CONTROLLER FAIL") Color.Red
+
+  alarm FLAGIDX_GENERATOR Hash("Generator") Color.Green
+  alarm FLAGIDX_SILOFULL Hash("SILO IS FULL") Color.Yellow
+
+  gauge PKT_AVGCHARGE Hash("Battery Charge") DISPLAYMODE_PERCENTAGE Color.Green
+  gauge PKT_SUMPOWER Hash("Power Draw") DISPLAYMODE_POWER Color.Yellow
+  gauge PKT_UTILIZATION Hash("Centrifuges Operating") DISPLAYMODE_NUMERIC Color.White
+
+loop:
+  yield
+  add StockStuck StockStuck 1
+  add StatusStuck StatusStuck 1
+
+  slt r0 StockStuck 24
+  select r0 r0 Color.Green Color.Red
+  sbn LightDiodeSmall Hash("Stock Monitoring Online") Color r0
+
+  slt r0 StatusStuck 4
+  select r0 r0 Color.Green Color.Red
+  sbn LightDiodeSmall Hash("System Monitoring Online") Color r0
+
+  ; Read in the stock stream and update internal table, then apply delta to network channel
+  lbn r0 LogicTransmitter StockReceiver Setting Sum
+  beq r0 PrevStock no_stock_update
+  move StockStuck 0
+  move PrevStock r0
+  ext r1 r0 0 22
+  srl r0 r0 22
+
+  ; Write the local display
+  mod r2 r1 INGOT_DISPLAY_MODULUS
+  add r2 r2 SP_LOOKUPTABLE
+  get r2 db r2
+  sbn LEDDisplay3 r2 Setting r0
+
+  beq r1 Calc(ItemCoal%INGOT_BASE_MODULUS) no_stock_update ; Don't update coal on the network
+
+  ; Then get the delta from the last update
+  mod r2 r1 INGOT_NETWORK_MODULUS
+  add r3 r2 SP_STOCKTABLE
+  get r4 db r3
+  beq r4 -1 prep_fix_network ; If we flagged we need to reset, then r4 = stock total and flag to force the NaN to 0
+  sub r4 r4 r0 ; r4 = stock delta from prev to curr otherwise
+
+load_network_val: ; r4 = delta to apply to network channel
+  add r6 r2 LogicType.Channel0 ; r6 = which channel (based on which ingot)
+  lb r5 LogicMemory ReferenceId Sum ; r5 = RefId of logic memory (needed to access port)
+  beqz r5 no_stock_update ; If there's no logic memory, skip any update work
+  l r0 r5:0 r6 ; Otherwise we read the channel
+
+  ; Now we decide what to do in case we find a NaN (is it a new NaN, or are we going to fix it?)
+  select ForceNetwork ForceNetwork fix_network_nan nan_network_value
+  bnan r0 ForceNetwork ; If we got NaN from the network, run the specified NaN handler
+
+write_network: ; No NaN or the handler jumped back here.  Clear the fix flag, add the delta to the network, and store
+  move ForceNetwork 0
+  add r0 r0 r4
+  s r5:0 r6 r0
+
+cache_delta:
+  poke r3 r0 ; And store current stock to previous
+
+no_stock_update:
+  ; Read in the status stream and update display.  If this is an alarm, break out to custom handler.  Otherwise, write to LED display.
+  lbn r0 LogicTransmitter StatusReceiver Setting Sum
+  breq r0 PrevStatus 2
+  move StatusStuck 0
+  move PrevStatus r0
+  ext r1 r0 0 8
+  srl r0 r0 8
+  beq r1 PKT_ALARMS handle_alarms
+  beq r1 PKT_FLAGS handle_flags
+  div r0 r0 256
+  add r1 r1 SP_GAUGETABLE
+  get r1 db r1
+  sbn LEDDisplay2 r1 Setting r0
+  j loop
+
+nan_network_value: ; We found an unexpected NaN.  Store -1 as our "cached" stock locally, so we can use it next cycle.
+  move r0 -1
+  j cache_delta
+
+prep_fix_network: ; Prepare to fix the network - Delta = Total, and flag to null-coalesce to 0
+  move r4 r0
+  move ForceNetwork 1
+  j load_network_val
+
+fix_network_nan: ; Overwrite NaN with 0 so we write a value number back to the network
+  move r0 0
+  j write_network
+
+handle_alarms:
+  move r1 -1
+
+handle_loop:
+  add r1 r1 1
+  ext r2 r0 r1 1
+  jal alarm_indicator
+  blt r1 5 handle_loop
+  j loop
+
+handle_flags:
+  move r1 -1
+
+handle_flag_loop:
+  add r1 r1 1
+  ext r2 r0 r1 1
+  add r1 r1 6
+  jal alarm_indicator
+  sub r1 r1 6
+  blt r1 5 handle_flag_loop
+  j loop
+
+alarm_indicator: ; r0 is reserved.  r1 is alarm index.  r2 is alarm value.  Preserve r0/r1.
+  add r3 r1 SP_ALARMTABLE
+  get r3 db r3 ; r3 = indicator name hash
+  add r4 r1 SP_COLORTABLE
+  get r4 db r4 ; r3 = indicator alarm color
+  select r4 r2 r4 Color.Black
+  sbn LabelDiode2 r3 On r2
+  sbn LabelDiode2 r3 Color r4
+  j ra

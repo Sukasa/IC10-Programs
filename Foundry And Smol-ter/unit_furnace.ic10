@@ -1,0 +1,567 @@
+include unit_furnace_definitions.asm
+
+  ; Recipe structure
+  ; 0 - Name
+  ; 1 - Item Hash
+  ; 2 - Temp SP
+  ; 3 - Pres SP
+  ; 4 - Reagent 1
+  ; 5 - Reagent 1 Ratio
+  ; 6 - Reagent 2
+  ; 7 - Reagent 2 Ratio
+  ; 8 - Reagent 3 (0 if none)
+  ; 9 - Reagent 3 Ratio
+  ; 10 - Zero Terminator
+
+
+  ; Gauge configuration table:
+  ; - Stack starts at END of table
+  ; - First popped value: Gauge Divisor
+  ; - Value pairs: (%, Col)
+  ; - If % >= Scratch, Gauge = Color
+
+
+section display_initializer requires definitions
+
+macro reagent_name ReagentCode ReagentNameVal
+  poke Calc(ReagentCode%REAGENT_MODULUS+UI_SP_REAGENT_NAMES) ReagentNameVal
+endmacro
+
+  lbn MasterDevice ICHousingCompact MasterChip ReferenceId Sum
+
+  ; Write mix reagent SBN NameHashes to UI controller
+  sub sp UI_SP_MIX_NAME_TABLE_END 6
+  push Reagent3Qty
+  push Reagent3
+  push Reagent2Qty
+  push Reagent2
+  push Reagent1Qty
+  push Reagent1
+
+  ; Blanket pressure gauge
+  poke Calc(UI_SP_BLANKET_GAUGE-1) 400
+  poke Calc(UI_SP_BLANKET_GAUGE-2) Calc(315/400)
+  poke Calc(UI_SP_BLANKET_GAUGE-3) Color.Red
+  poke Calc(UI_SP_BLANKET_GAUGE-4) Calc(105/400)
+  poke Calc(UI_SP_BLANKET_GAUGE-5) Color.Green
+  poke Calc(UI_SP_BLANKET_GAUGE-6) 0
+  poke Calc(UI_SP_BLANKET_GAUGE-7) Color.Yellow
+
+  ; Blanket tank pressure gauge
+  poke Calc(UI_SP_BLANKET_TANK_GAUGE-1) 5000
+  poke Calc(UI_SP_BLANKET_TANK_GAUGE-2) Calc(4000/5000)
+  poke Calc(UI_SP_BLANKET_TANK_GAUGE-3) Color.Red
+  poke Calc(UI_SP_BLANKET_TANK_GAUGE-4) Calc(50/5000)
+  poke Calc(UI_SP_BLANKET_TANK_GAUGE-5) Color.Green
+  poke Calc(UI_SP_BLANKET_TANK_GAUGE-6) 0
+  poke Calc(UI_SP_BLANKET_TANK_GAUGE-7) Color.Orange
+
+  ; Blanket Gas Purity gauge
+  poke Calc(UI_SP_PURITY_GAUGE-1) 1
+  poke Calc(UI_SP_PURITY_GAUGE-2) 0.95
+  poke Calc(UI_SP_PURITY_GAUGE-3) Color.Green
+  poke Calc(UI_SP_PURITY_GAUGE-4) 0.9
+  poke Calc(UI_SP_PURITY_GAUGE-5) Color.Orange
+  poke Calc(UI_SP_PURITY_GAUGE-6) 0
+  poke Calc(UI_SP_PURITY_GAUGE-7) Color.Red
+
+  ; Supply Line Pressure gauge
+  poke Calc(UI_SP_SUPPLY_GAUGE-1) 5000
+  poke Calc(UI_SP_SUPPLY_GAUGE-2) 0.8
+  poke Calc(UI_SP_SUPPLY_GAUGE-3) Color.Red
+  poke Calc(UI_SP_SUPPLY_GAUGE-4) 0.6
+  poke Calc(UI_SP_SUPPLY_GAUGE-5) Color.Orange
+  poke Calc(UI_SP_SUPPLY_GAUGE-6) 0.4
+  poke Calc(UI_SP_SUPPLY_GAUGE-7) Color.Green
+  poke Calc(UI_SP_SUPPLY_GAUGE-8) 0.2
+  poke Calc(UI_SP_SUPPLY_GAUGE-9) Color.Yellow
+  poke Calc(UI_SP_SUPPLY_GAUGE-10) 0
+  poke Calc(UI_SP_SUPPLY_GAUGE-11) Color.Red
+
+  ; Exhaust Line Pressure gauge
+  poke Calc(UI_SP_EXHAUST_GAUGE-1) 2000
+  poke Calc(UI_SP_EXHAUST_GAUGE-2) 0.5
+  poke Calc(UI_SP_EXHAUST_GAUGE-3) Color.Red
+  poke Calc(UI_SP_EXHAUST_GAUGE-4) 0.25
+  poke Calc(UI_SP_EXHAUST_GAUGE-5) Color.Yellow
+  poke Calc(UI_SP_EXHAUST_GAUGE-6) 0
+  poke Calc(UI_SP_EXHAUST_GAUGE-7) Color.Green
+
+  ; Chamber Temperature gauge
+  poke Calc(UI_SP_TEMPERATURE_GAUGE-1) 2400
+  poke Calc(UI_SP_TEMPERATURE_GAUGE-2) 0.5
+  poke Calc(UI_SP_TEMPERATURE_GAUGE-3) Color.Red
+  poke Calc(UI_SP_TEMPERATURE_GAUGE-4) 0.25
+  poke Calc(UI_SP_TEMPERATURE_GAUGE-5) Color.Yellow
+  poke Calc(UI_SP_TEMPERATURE_GAUGE-6) 0
+  poke Calc(UI_SP_TEMPERATURE_GAUGE-7) Color.Green
+
+  ; Chamber Pressure gauge
+  poke Calc(UI_SP_CHAMBER_GAUGE-1) 60000
+  poke Calc(UI_SP_CHAMBER_GAUGE-2) 0.5
+  poke Calc(UI_SP_CHAMBER_GAUGE-3) Color.Red
+  poke Calc(UI_SP_CHAMBER_GAUGE-4) 0.25
+  poke Calc(UI_SP_CHAMBER_GAUGE-5) Color.Green
+  poke Calc(UI_SP_CHAMBER_GAUGE-6) 0
+  poke Calc(UI_SP_CHAMBER_GAUGE-7) Color.Yellow
+
+  ; Write item names
+  reagent_name ReagentCoal Str("Coal")
+  reagent_name ReagentSilver Str("Silver")
+  reagent_name ReagentSilicon Str("Slicon")
+  reagent_name ReagentNickel Str("Nickel")
+  reagent_name ReagentLead Str("Lead")
+  reagent_name ReagentIron Str("Iron")
+  reagent_name ReagentGold Str("Gold")
+  reagent_name ReagentCopper Str("Copper")
+  reagent_name ReagentCobalt Str("Cobalt")
+  reagent_name ReagentSteel Str("Steel")
+  reagent_name ReagentSolder Str("Solder")
+  reagent_name ReagentInvar Str("Invar")
+  reagent_name ReagentElectrum Str("Elctrm")
+  reagent_name ReagentConstantan Str("Cstntn")
+  reagent_name ReagentWaspaloy Str("Wspaly")
+  reagent_name ReagentStellite Str("Stllte")
+  reagent_name ReagentInconel Str("Incnl")
+  reagent_name ReagentHastelloy Str("Hstlly")
+  reagent_name ReagentAstroloy Str("Astrly")
+
+  ; Write state labels
+  move sp UI_SP_MODE_STRINGS
+  push Str("Idle")
+  push Str("Load")
+  push Str("Cook")
+  push Str("Eject")
+  push Str("Abort")
+  push Str("Manual")
+
+  move sp UI_SP_MODE_COLORS
+  push Color.White
+  push Color.Yellow
+  push Color.Green
+  push Color.Blue
+  push Color.Red
+  push Color.Orange
+
+
+section recipe_initializer requires definitions
+
+macro recipe index NameStr ResultHash TempSP PresSP
+  define  TABLE_OFFSET Calc(index*RECIPE_STRIDE+MSTR_SP_RECIPE_TABLE)
+  poke TABLE_OFFSET NameStr
+  poke Calc(TABLE_OFFSET+RECIPE_OFFSET_RESULT) ResultHash
+  poke Calc(TABLE_OFFSET+RECIPE_OFFSET_TEMP_SP) TempSP
+  poke Calc(TABLE_OFFSET+RECIPE_OFFSET_PRES_SP) PresSP
+  poke Calc(TABLE_OFFSET+RECIPE_OFFSET_TERMINATOR) 0
+endmacro
+
+macro recipe_reagent index reagentIdx ReagentHash RatioQty
+  define  TABLE_OFFSET Calc(index*RECIPE_STRIDE+MSTR_SP_RECIPE_TABLE)
+  poke Calc(reagentIdx*RECIPE_STRIDE_REAGENT+TABLE_OFFSET+RECIPE_OFFSET_REAGENT1) ReagentHash
+  poke Calc(reagentIdx*RECIPE_STRIDE_REAGENT+TABLE_OFFSET+RECIPE_OFFSET_QUANTITY1) RatioQty
+endmacro
+
+macro simple_recipe index
+  define  TABLE_OFFSET Calc(index*RECIPE_STRIDE+MSTR_SP_RECIPE_TABLE)
+  poke Calc(2*RECIPE_STRIDE_REAGENT+TABLE_OFFSET+RECIPE_OFFSET_REAGENT1) 0
+endmacro
+
+  move sp RCP_SP_REAGENT_TABLE
+  push ReagentCoal
+  push ReagentSilver
+  push ReagentSilicon
+  push ReagentNickel
+  push ReagentLead
+  push ReagentIron
+  push ReagentGold
+  push ReagentCopper
+  push ReagentCobalt
+  push ReagentSteel
+  push ReagentSolder
+  push ReagentInvar
+  push ReagentElectrum
+  push ReagentConstantan
+  push ReagentWaspaloy
+  push ReagentStellite
+  push ReagentInconel
+  push ReagentHastelloy
+  push ReagentAstroloy
+
+  recipe 0 Str("Steel") Hash("ItemSteelIngot") 1000 1100
+  recipe_reagent 0 0 ReagentCoal 0.25
+  recipe_reagent 0 1 ReagentIron 0.75
+  simple_recipe 0
+
+  recipe 1 Str("Solder") Hash("ItemSolderIngot") 425 1100
+  recipe_reagent 1 0 ReagentLead 0.5
+  recipe_reagent 1 1 ReagentIron 0.5
+  simple_recipe 1
+
+  recipe 2 Str("Invar") Hash("ItemInvarIngot") 1250 19000
+  recipe_reagent 2 0 ReagentNickel 0.5
+  recipe_reagent 2 1 ReagentIron 0.5
+  simple_recipe 2
+
+  recipe 3 Str("Elctrm") Hash("ItemElectrumIngot") 700 1200
+  recipe_reagent 3 0 ReagentSilver 0.5
+  recipe_reagent 3 1 ReagentGold 0.5
+  simple_recipe 3
+
+  recipe 4 Str("Cstntn") Hash("ItemConstantanIngot") 1100 21000
+  recipe_reagent 4 0 ReagentNickel 0.5
+  recipe_reagent 4 1 ReagentCopper 0.5
+  simple_recipe 4
+
+  recipe 5 Str("Wspaly") Hash("ItemWaspaloyIngot") 600 51000
+  recipe_reagent 5 0 ReagentSilver 0.25
+  recipe_reagent 5 1 ReagentNickel 0.25
+  recipe_reagent 5 2 ReagentLead 0.5
+
+  recipe 6 Str("Stllte") Hash("ItemStelliteIngot") 1850 11000
+  recipe_reagent 6 0 ReagentSilver 0.25
+  recipe_reagent 6 1 ReagentSilicon 0.5
+  recipe_reagent 6 2 ReagentCobalt 0.25
+
+  recipe 7 Str("Incnl") Hash("ItemInconelIngot") 700 23750
+  recipe_reagent 7 0 ReagentNickel 0.25
+  recipe_reagent 7 1 ReagentGold 0.5
+  recipe_reagent 7 2 ReagentSteel 0.25
+
+  recipe 8 Str("Hstlly") Hash("ItemHastelloyIngot") 1050 27500
+  recipe_reagent 8 0 ReagentSilver 0.5
+  recipe_reagent 8 1 ReagentNickel 0.25
+  recipe_reagent 8 2 ReagentCobalt 0.25
+
+  recipe 9 Str("Astrly") Hash("ItemAstroloyIngot") 1100 35000
+  recipe_reagent 9 0 ReagentCopper 0.25
+  recipe_reagent 9 1 ReagentCobalt 0.25
+  recipe_reagent 9 2 ReagentSteel 0.5
+
+
+section master_controller requires definitions
+
+  ; Init selected recipe and system state
+  poke MSTR_SP_CURRENT_RECIPE MSTR_SP_RECIPE_TABLE
+  poke MSTR_SP_CHAMBER_STATE CHAMBER_IDLE
+  poke MSTR_SP_LOAD_STATE LOAD_INCOMPLETE
+
+
+  ; Startup: set recipe on network to current values
+
+  ; Check local/remote mode
+
+  ; In Local mode, run controls and change selected recipe, take big button as start command
+
+  ; In remote mode, take selected recipe and start command from network
+
+  ; When running, track chamber and load states and let the equipment do its thing
+
+  ; Abort if commanded and/or load fails.  Dump if load succeeds and chamber is at SP
+
+section equipment_controller requires definitions
+
+  alias   HotGasSelected            r11
+  alias   HotGasDesired             r10
+  alias   RecipeTempSP              r9
+
+  lbn MasterDevice ICHousingCompact MasterChip ReferenceId Sum
+  lb FurnaceRefId AdvancedFurnace ReferenceId Sum
+
+equipment_idle_loop:
+
+  sb WallHeater On 0
+  sbn DigitalValve EquipHotLine On 0
+  sbn DigitalValve EquipColdLine On 0
+  s FurnaceRefId SettingInput 1
+  s FurnaceRefId Open 0
+  sb ActiveVent On 1
+
+equipment_loop:
+  yield
+
+  lb Scratch FlipCoverSwitch Setting Sum
+  bnez Scratch equipment_manual_loop
+  sb ToggleSwitch Color Color.Black
+
+  ; Blanket control
+  lbn Scratch GasAnalyzer EquipBlanketTank RatioNitrogen Sum
+  lb Scratch2 GasSensor RatioNitrogen Sum
+  lerp Scratch Scratch2 Scratch 0.5
+  slt Scratch Scratch 1
+  select Scratch CurrentMode 0 Scratch ; Purge Needed = RatioNitrogen < 1 && CHAMBER_IDLE
+  lb Scratch2 GasSensor Pressure Sum
+  lbn Scratch3 GasAnalyzer EquipBlanketTank Pressure Sum
+  add Scratch2 Scratch2 Scratch3
+  select Scratch Scratch2 Scratch 0 ; Purge Needed = RatioNitrogen < 1 && CHAMBER_IDLE && Pressure > 0
+  sb TurboVolumePump On Scratch
+  sb TurboVolumePump Setting 100
+  seqz Scratch2 Scratch
+  sbn PressureRegulator EquipN2Line On Scratch2  ; Disable pressure fill if we're purging
+  beqz Scratch no_purge
+
+  ; Purge: vacuum blanket down to nothing
+  sb ActiveVent Mode ACTIVE_VENT_INWARD
+  sb ActiveVent PressureExternal 0
+
+  j purge_done
+  no_purge:
+  sbn PressureRegulator EquipN2Line Setting 50
+
+  ; Maintain blanket pressure within setpoints
+  lb Scratch2 GasSensor Pressure Sum
+  sgt Scratch2 Scratch2 200 ; Scratch2 = Fill/Drain mode
+
+  sb ActiveVent Mode Scratch2
+  select Scratch Scratch2 330 110
+  sb ActiveVent PressureExternal Scratch
+
+purge_done:
+  sb ActiveVent On 1
+
+
+  ; Gas Intake
+  get Scratch MasterDevice MSTR_SP_CURRENT_RECIPE
+  add Scratch Scratch RECIPE_OFFSET_PRES_SP
+  get Scratch MasterDevice Scratch ; Scratch = Pres SP
+  select Scratch CurrentMode Scratch 1000 ; Pres SP = 1MPa when in Idle
+  l Scratch2 FurnaceRefId Pressure ; Scratch2 = Current pressure
+
+  ; Vent
+  sub Scratch4 Scratch2 Scratch  ; Scratch = kPa over pressure from setpoint.  We can pull up to 10% of total out each tick
+  div Scratch4 Scratch4 Scratch2  ; Convert to % of volume we need to remove
+  max Scratch4 Scratch4 0         ; Keep sane value if we're under-pressure
+  mul Scratch4 Scratch4 1000      ; Scale to absolute volume of chamber
+  min Scratch4 Scratch4 100       ; And cap to actual pump limit
+  s FurnaceRefId SettingOutput Scratch4
+
+  get CurrentMode MasterDevice MSTR_SP_CHAMBER_STATE
+  beq CurrentMode CHAMBER_IDLE equipment_idle_loop
+
+  slt Scratch3 Scratch2 Scratch
+  select Scratch3 Scratch3 50 0    ; Feed 50L of gas into chamber each tick -> 5MPa intake pres is + 0.25MPa chamber pres
+  s FurnaceRefId SettingInput Scratch3
+
+  ; Wall Heater Control
+  sne Scratch3 CurrentMode CHAMBER_IDLE
+  get Scratch MasterDevice MSTR_SP_CURRENT_RECIPE
+  add Scratch Scratch RECIPE_OFFSET_TEMP_SP
+  get RecipeTempSP MasterDevice Scratch ; Scratch = Temp SP
+  lb Scratch2 GasSensor Temperature Sum
+  slt Scratch Scratch2 RecipeTempSP
+  select Scratch3 Scratch3 Scratch 0
+  lb Scratch GasSensor Pressure Sum
+  sgt Scratch Scratch 70
+  and Scratch3 Scratch3 Scratch
+  sb WallHeater On Scratch3
+
+  ; Gas Select
+  l Scratch FurnaceRefId Temperature
+  sle HotGasDesired Scratch RecipeTempSP
+  lbn Scratch GasAnalyzer EquipIntakeLine Pressure Sum
+  seqz Scratch Scratch ; Scratch == can change valve
+
+  or Scratch3 HotGasSelected Scratch
+  and Scratch3 Scratch3 HotGasDesired  ; Scratch3 = We want hot gas, AND either are hot gas or can switch to hot gas
+
+  seqz HotGasDesired HotGasDesired
+  seqz Scratch4 HotGasSelected
+
+  or Scratch4 Scratch4 Scratch
+  and Scratch4 Scratch4 HotGasDesired  ; Scratch4 = We want cold gas, AND either are cold gas or can switch to cold gas
+
+  sbn DigitalValve EquipHotLine On Scratch3
+  sbn DigitalValve EquipColdLine On Scratch4
+
+  select HotGasSelected Scratch4 0 HotGasSelected ; Set HotGasSelected to open valve
+  select HotGasSelected Scratch3 1 HotGasSelected
+
+  ; Open crucible on dump or abort
+  seq Scratch CurrentMode CHAMBER_DUMP
+  seq Scratch2 CurrentMode CHAMBER_ABORT
+  or Scratch Scratch Scratch2
+  s FurnaceRefId Open Scratch
+
+  j equipment_loop
+
+equipment_manual_loop:
+  ; Toggle Switches
+  lbn Scratch FlipSwitch CtrlBlanketTankFillEnab Setting Sum
+  sbn PressureRegulator EquipN2Line On Scratch
+  select Scratch Scratch Color.Green Color.Red
+  sbn ToggleSwitch CtrlBlanketTankFillEnab Color Scratch
+  lbn Scratch ToggleSwitch CtrlBlanketTankVentEnab Setting Sum
+  sb TurboVolumePump On Scratch
+  select Scratch Scratch Color.Green Color.Red
+  sbn ToggleSwitch CtrlBlanketTankVentEnab Color Scratch
+
+  lbn Scratch4 ToggleSwitch CtrlBlanketPumpDir Setting Sum
+  sb ActiveVent Mode Scratch4
+  select Scratch Scratch4 Color.Red Color.Blue
+  sbn ToggleSwitch CtrlBlanketPumpDir Color Scratch
+
+  lbn Scratch ToggleSwitch CtrlBlanketPumpEnable Setting Sum
+  sb ActiveVent On Scratch
+  select Scratch Scratch Color.Green Color.Red
+  sbn ToggleSwitch CtrlBlanketPumpEnable Color Scratch
+
+  ; Flip Switches
+  lbn Scratch FlipSwitch CtrlHotGasValve Setting Sum
+  sbn DigitalValve EquipHotLine On Scratch
+
+  lbn Scratch FlipSwitch CtrlColdGasValve Setting Sum
+  sbn DigitalValve EquipColdLine On Scratch
+
+  lbn Scratch FlipSwitch CtrlBlanketHeater Setting Sum
+  sb WallHeater On Scratch
+
+  ; Dials
+  lbn Scratch Dial CtrlBlanketTankVentRate Setting Sum
+  sb TurboVolumePump Setting Scratch
+
+  lbn Scratch Dial CtrlBlanketTankFillPres Setting Sum
+  sbn PressureRegulator EquipN2Line Setting Scratch
+
+  lbn Scratch Dial CtrlBlanketFillPres Setting Sum
+  lbn Scratch2 Dial CtrlBlanketVentPres Setting Sum
+
+  select Scratch Scratch4 Scratch2 Scratch
+  sb ActiveVent PressureExternal Scratch
+
+  lbn Scratch Dial CtrlChamberFillRate Setting Sum
+  s FurnaceRefId SettingInput Scratch
+
+  lbn Scratch Dial CtrlChamberVentRate Setting Sum
+  s FurnaceRefId SettingOutput Scratch
+
+
+  j equipment_loop
+
+
+section recipe_controller requires definitions
+
+  ; TODO: If the reagents are scanned in a known order, then as long as the recipe uses that order we
+  ; can simplify a lot of the search/check code
+
+  alias   RecipeReagentsAddr        r11
+  alias   ReagentHash               r10
+  alias   ReagentQuantity           r9
+  alias   MixArrayIndex             r8
+  alias   ExpectedReagentCount      r7
+
+  lbn MasterDevice ICHousingCompact MasterChip ReferenceId Sum
+  lb FurnaceRefId AdvancedFurnace ReferenceId Sum
+
+start_idle:
+  move Scratch MSTR_SP_MIX_TABLE
+  put MasterDevice MSTR_SP_LOAD_STATE LOAD_INCOMPLETE
+
+idle_clear_loop:
+  put MasterDevice Scratch 0
+  add Scratch Scratch 1
+  blt Scratch MSTR_SP_MIX_TABLE_END idle_clear_loop
+
+idle_loop: ; Wait for the chamber to leave the CHAMBER_IDLE state
+  yield
+  get CurrentMode MasterDevice MSTR_SP_CHAMBER_STATE
+  beq CurrentMode CHAMBER_IDLE idle_loop
+
+  ; Move into active mode: note current recipe reagent state
+  get RecipeReagentsAddr MasterDevice MSTR_SP_CURRENT_RECIPE
+  add RecipeReagentsAddr RecipeReagentsAddr RECIPE_OFFSET_REAGENT1
+  add ExpectedReagentCount RecipeReagentsAddr RECIPE_STRIDE_REAGENT ; Initialize to Reagent 2
+
+reagent_count_loop: ; Find the end of the reagent table (which is NOT zero-terminated)
+  add ExpectedReagentCount ExpectedReagentCount RECIPE_STRIDE_REAGENT
+  get Scratch MasterDevice ExpectedReagentCount
+  bnez Scratch reagent_count_loop ; If we get a 0 reagent hash, we reached the end of the recipe table
+
+  ; Main continuous recipe-validation loop
+active_loop:
+  yield
+
+  ; Check for process cancellation or abort
+  get CurrentMode MasterDevice MSTR_SP_CHAMBER_STATE
+  beq CurrentMode CHAMBER_IDLE start_idle ; These could be optimized into an `sna` call if I found the math again
+  beq CurrentMode CHAMBER_ABORT start_idle
+  beq CurrentMode CHAMBER_DUMP wait_inactive_loop ; If we're dumping, then we can stop monitoring the chamber reagents
+
+  move sp RCP_SP_REAGENT_TABLE_END
+  move MixArrayIndex MSTR_SP_MIX_TABLE
+
+monitor_reagent_loop:
+  ble sp RCP_SP_REAGENT_TABLE end_monitor_reagent_loop  ; If we reached the end of the reagent table, check contents next
+  pop ReagentHash ; Otherwise we pop a reagent hash, and get the quantity
+  lr ReagentQuantity FurnaceRefId Contents ReagentHash
+  beqz ReagentQuantity monitor_reagent_loop ; If none of that in the furnace, continue the loop
+  jal check_valid_reagent ; Now validate that the reagent is ok AND we have at most three reagents in the furnace
+  put MasterDevice MixArrayIndex ReagentHash ; Store hash to mix table
+  add MixArrayIndex MixArrayIndex 1
+  put MasterDevice MixArrayIndex ReagentQuantity ; Store quantity to mix table
+  add MixArrayIndex MixArrayIndex 1
+  j monitor_reagent_loop  ; and continue looping through the reagents to check in the furnace
+
+  ; We made it through the list of reagents, and passed the valid reagent check each time.
+  ; Now set state based on load / balancing
+end_monitor_reagent_loop:
+  blt MixArrayIndex ExpectedReagentCount active_loop ; If not enough reagents, we're still LOAD_INCOMPLETE
+
+  ; Get match ratio from recipe reagent 1
+  move MixArrayIndex RecipeReagentsAddr
+  get ReagentHash MasterDevice MixArrayIndex
+  lr ReagentQuantity FurnaceRefId Contents ReagentHash
+  jal get_reagent_ratio
+  move Scratch3 Scratch
+
+  ; Check the recipe ratio against reagent ingredient 2
+  add MixArrayIndex RecipeReagentsAddr 2
+  get ReagentHash MasterDevice MixArrayIndex
+  lr ReagentQuantity FurnaceRefId Contents ReagentHash
+  jal get_reagent_ratio
+  bne Scratch Scratch3 ratio_mismatch
+
+  ; Check the recipe ratio against reagent ingredient 3 (if there is one)
+  add MixArrayIndex RecipeReagentsAddr 4
+  get ReagentHash MasterDevice MixArrayIndex
+  beqz ReagentHash ratio_good
+  lr ReagentQuantity FurnaceRefId Contents ReagentHash
+  jal get_reagent_ratio
+  bne Scratch Scratch3 ratio_mismatch
+
+ratio_good: ; Reagents are good and we have a balanced ratio
+  put MasterDevice MSTR_SP_LOAD_STATE LOAD_BALANCED
+  j active_loop
+
+ratio_mismatch: ; Reagents are good, but the ratio is off (maybe we're still loading?)
+  put MasterDevice MSTR_SP_LOAD_STATE LOAD_IMBALANCE
+  j active_loop
+
+monitor_reagent_loop_fail: ; Tell the master controller the recipe load is an unusable mix and to abort to IDLE.
+  put MasterDevice MSTR_SP_LOAD_STATE LOAD_IMPROPER
+
+wait_inactive_loop: ; Wait for the chamber to enter the CHAMBER_IDLE state (i.e. done dump)
+  yield
+  get CurrentMode MasterDevice MSTR_SP_CHAMBER_STATE
+  bne CurrentMode CHAMBER_IDLE wait_inactive_loop
+  j start_idle
+
+check_valid_reagent: ; Returns if the reagent is valid; breaks out to fail state if not
+  bge MixArrayIndex MSTR_SP_MIX_TABLE_END monitor_reagent_loop_fail ; Fail if we have >3 reagents in the furnace
+  move Scratch RecipeReagentsAddr ; Get a scratch pointer to the recipe table from the master device
+
+check_next_reagent:
+  get Scratch2 MasterDevice Scratch ; Check if we have a reagent matching the recipe
+  beq ReagentHash Scratch2 ra ; If so, it's valid; do nothing and return
+  add Scratch Scratch 2 ; Otherwise it MAY be valid, check the next index in the reagent table
+  bnez Scratch2 check_next_reagent ; Repeat check loop as long as we didn't hit the null terminator in the recipe
+  j monitor_reagent_loop_fail ; We failed to match, so this recipe is now IMPROPER
+
+get_reagent_ratio: ; Get reagent ratio for ReagentHash, result in Scratch
+  move Scratch RecipeReagentsAddr
+find_reagent:
+  get Scratch2 MasterDevice Scratch
+  add Scratch Scratch 2
+  bne Scratch2 ReagentHash find_reagent
+  sub Scratch Scratch 1
+  get Scratch2 MasterDevice Scratch
+  div Scratch ReagentQuantity Scratch2
+  j ra
