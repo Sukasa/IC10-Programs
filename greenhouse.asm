@@ -77,7 +77,7 @@ section definitions
   define CardColor          6                     # Desired unlock card colour (-1 for none)
   define UnlockStatus       7                     # Unlocked status
   define LightStatus        8                     # Lights On/Off Status
-  define ActiveAlarms       9                     # Active (1 == off-nominal) warnings as bit array
+#  define ActiveAlarms       9                     # Active (1 == off-nominal) warnings as bit array
   define SeedHash		        10                    # Hash for the seed item used to plant this plant
   define FruitHash		      11                    # Hash for the fruit item this plant produces
   
@@ -162,7 +162,9 @@ section definitions
 
 section provisioning requires definitions
 
-  move EnabExtended 1                             # Disable extended functions (== 2, as part of LoC optimization)
+  clr db
+
+  move EnabExtended 2                             # Disable extended functions (== 2, as part of LoC optimization)
   poke AlarmTableInit AlarmDefsEnd                # Init alarm table start at normal end
   move sp Display1
   move Scratch1 -1
@@ -176,32 +178,31 @@ search:
   ble sp Display3 search                          # Continue search until we find all displays
   
 init_tables:
-  move sp CropTable                               # Crop name table
-  push STR("Potato")                              # SP = 15
-  push STR("Soy")
-  push STR("Rice")
-  push STR("Tomato")
-  push STR("Wheat")
-  push STR("Fern")
-  push STR("Darga")
-  push STR("Cocoa")
-  push STR("Corn")
-  push STR("Pmpkn")
-  push STR("WnterA")
-  push STR("WnterB")
-  push STR("HadesA")
-  push STR("HadesB")
-  push STR("T Lily")
-  push STR("P Lily")
-  push STR("Sugar")
-  push STR("Flax")
-  push STR("Gorse")
-  push STR("Strbry")
-  push STR("Blubry")
-  push STR("Wtrmln")
-  push STR("Grass")
-  push STR("Mushrm")
-  push STR("Swcgrs")
+  poke Calc(CropTable+0)   STR("Potato")
+  poke Calc(CropTable+1)   STR("Soy")
+  poke Calc(CropTable+2)   STR("Rice")
+  poke Calc(CropTable+3)   STR("Tomato")
+  poke Calc(CropTable+4)   STR("Wheat")
+  poke Calc(CropTable+5)   STR("Fern")
+  poke Calc(CropTable+6)   STR("Darga")
+  poke Calc(CropTable+7)   STR("Cocoa")
+  poke Calc(CropTable+8)   STR("Corn")
+  poke Calc(CropTable+9)   STR("Pmpkn")
+  poke Calc(CropTable+10)  STR("WnterA")
+  poke Calc(CropTable+11)  STR("WnterB")
+  poke Calc(CropTable+12)  STR("HadesA")
+  poke Calc(CropTable+13)  STR("HadesB")
+  poke Calc(CropTable+14)  STR("T Lily")
+  poke Calc(CropTable+15)  STR("P Lily")
+  poke Calc(CropTable+16)  STR("Sugar")
+  poke Calc(CropTable+17)  STR("Flax")
+  poke Calc(CropTable+18)  STR("Gorse")
+  poke Calc(CropTable+19)  STR("Strbry")
+  poke Calc(CropTable+20)  STR("Blubry")
+  poke Calc(CropTable+21)  STR("Wtrmln")
+  poke Calc(CropTable+22)  STR("Grass")
+  poke Calc(CropTable+23)  STR("Mushrm")
+  poke Calc(CropTable+24)  STR("Swcgrs")
   
                                                   #  100s = 00C8t Tick conversions
                                                   #  200s = 0190t
@@ -213,87 +214,87 @@ init_tables:
                                                   # 3600s = 1C20t
   
                                                   # Crop data table (Warn Mask, On Time, Off Time) (SP = 40)
-  push 0x02BF02580190                             # 0x02BF << 32 | 300s << 16 |  200s Potato
-  push 0x02FF04B00258                             # 0x02FF << 32 | 600s << 16 |  300s Soy
-  push 0x02BF04B00258                             # 0x02BF << 32 | 600s << 16 |  300s Rice
-  push 0x02BF01E00258                             # 0x02BF << 32 | 480s << 16 |  300s Tomato
-  push 0x02BF04B00258                             # 0x02BF << 32 | 600s << 16 |  300s Wheat
-  push 0x02BF01E00258                             # 0x02BF << 32 | 480s << 16 |  300s Fern
-  push 0x02BF01E00258                             # 0x02BF << 32 | 480s << 16 |  300s Darga Fern
-  push 0x02BF01F40190                             # 0x02BF << 32 | 500s << 16 |  200s Cocoa
-  push 0x02BF01F40190                             # 0x02BF << 32 | 500s << 16 |  200s Corn
-  push 0x02BF01F400C8                             # 0x02BF << 32 | 500s << 16 |  100s Pumpkin
-  push 0x023F04B00258                             # 0x023F << 32 | 600s << 16 |  300s Winterspawn
-  push 0x023F04B00258                             # 0x023F << 32 | 600s << 16 |  300s Winterspawn B
-  push 0x033304B00258                             # 0x0333 << 32 | 600s << 16 |  300s Hades Flower
-  push 0x033304B00258                             # 0x0333 << 32 | 600s << 16 |  300s Hades Flower B
-  push 0x02BF04B00258                             # 0x02BF << 32 | 600s << 16 |  300s Lily (T)
-  push 0x02BF04B00258                             # 0x02BF << 32 | 600s << 16 |  300s Lily (P)
-  push 0x02BF01F40190                             # 0x02BF << 32 | 500s << 16 |  200s Sugarcane
-  push 0x02BF04B00258                             # 0x02BF << 32 | 600s << 16 |  300s Gorse
-  push 0x02BF04B00258                             # 0x02BF << 32 | 600s << 16 |  300s Flax
-  push 0x02BF04B00258                             # 0x02BF << 32 | 600s << 16 |  300s Strawberry
-  push 0x02BF04B00258                             # 0x02BF << 32 | 600s << 16 |  300s Blueberry
-  push 0x02BF04B00258                             # 0x02BF << 32 | 600s << 16 |  300s Watermelon
-  push 0x02BF04B00258                             # 0x02BF << 32 | 600s << 16 |  300s Grass
-  push 0x03B700001C20                             # 0x03B7 << 32 |   0s << 16 | 3600s Mushroom 
-  push 0x02BF04B00258                             # 0x02BF << 32 | 600s << 16 |  300s Switchgrass
+  poke Calc(TimesTable+0)   0x02BF02580190        # 0x02BF << 32 | 300s << 16 |  200s Potato
+  poke Calc(TimesTable+1)   0x02FF04B00258        # 0x02FF << 32 | 600s << 16 |  300s Soy
+  poke Calc(TimesTable+2)   0x02BF04B00258        # 0x02BF << 32 | 600s << 16 |  300s Rice
+  poke Calc(TimesTable+3)   0x02BF01E00258        # 0x02BF << 32 | 480s << 16 |  300s Tomato
+  poke Calc(TimesTable+4)   0x02BF04B00258        # 0x02BF << 32 | 600s << 16 |  300s Wheat
+  poke Calc(TimesTable+5)   0x02BF01E00258        # 0x02BF << 32 | 480s << 16 |  300s Fern
+  poke Calc(TimesTable+6)   0x02BF01E00258        # 0x02BF << 32 | 480s << 16 |  300s Darga Fern
+  poke Calc(TimesTable+7)   0x02BF01F40190        # 0x02BF << 32 | 500s << 16 |  200s Cocoa
+  poke Calc(TimesTable+8)   0x02BF01F40190        # 0x02BF << 32 | 500s << 16 |  200s Corn
+  poke Calc(TimesTable+9)   0x02BF01F400C8        # 0x02BF << 32 | 500s << 16 |  100s Pumpkin
+  poke Calc(TimesTable+10)  0x023F04B00258        # 0x023F << 32 | 600s << 16 |  300s Winterspawn
+  poke Calc(TimesTable+11)  0x023F04B00258        # 0x023F << 32 | 600s << 16 |  300s Winterspawn B
+  poke Calc(TimesTable+12)  0x033304B00258        # 0x0333 << 32 | 600s << 16 |  300s Hades Flower
+  poke Calc(TimesTable+13)  0x033304B00258        # 0x0333 << 32 | 600s << 16 |  300s Hades Flower B
+  poke Calc(TimesTable+14)  0x02BF04B00258        # 0x02BF << 32 | 600s << 16 |  300s Lily (T)
+  poke Calc(TimesTable+15)  0x02BF04B00258        # 0x02BF << 32 | 600s << 16 |  300s Lily (P)
+  poke Calc(TimesTable+16)  0x02BF01F40190        # 0x02BF << 32 | 500s << 16 |  200s Sugarcane
+  poke Calc(TimesTable+17)  0x02BF04B00258        # 0x02BF << 32 | 600s << 16 |  300s Gorse
+  poke Calc(TimesTable+18)  0x02BF04B00258        # 0x02BF << 32 | 600s << 16 |  300s Flax
+  poke Calc(TimesTable+19)  0x02BF04B00258        # 0x02BF << 32 | 600s << 16 |  300s Strawberry
+  poke Calc(TimesTable+20)  0x02BF04B00258        # 0x02BF << 32 | 600s << 16 |  300s Blueberry
+  poke Calc(TimesTable+21)  0x02BF04B00258        # 0x02BF << 32 | 600s << 16 |  300s Watermelon
+  poke Calc(TimesTable+22)  0x02BF04B00258        # 0x02BF << 32 | 600s << 16 |  300s Grass
+  poke Calc(TimesTable+23)  0x03B700001C20        # 0x03B7 << 32 |   0s << 16 | 3600s Mushroom
+  poke Calc(TimesTable+24)  0x02BF04B00258        # 0x02BF << 32 | 600s << 16 |  300s Switchgrass
 
-  push STR("Warn")                                # Warnings table, SP = 65
-  push STR("Power")                               # Warnings table, SP = 66
-  push STR("Wtr Lo")
-  push STR("Tox Hi")
-  push STR("CO2 Lo")  
-  push STR("A Temp")
-  push STR("A Pres")
-  push STR("N2 Low")
-  push STR("Vol Hi")  
-  push STR("O2 Low")
-  push STR("W Temp")
+  poke Calc(WarningTable+0)  STR("Warn")          # Warnings table, SP = 65
+  poke Calc(WarningTable+1)  STR("Power")         # Warnings table, SP = 66
+  poke Calc(WarningTable+2)  STR("Wtr Lo")
+  poke Calc(WarningTable+3)  STR("Tox Hi")
+  poke Calc(WarningTable+4)  STR("CO2 Lo")
+  poke Calc(WarningTable+5)  STR("A Temp")
+  poke Calc(WarningTable+6)  STR("A Pres")
+  poke Calc(WarningTable+7)  STR("N2 Low")
+  poke Calc(WarningTable+8)  STR("Vol Hi")
+  poke Calc(WarningTable+9)  STR("O2 Low")
+  poke Calc(WarningTable+10) STR("W Temp")
   
-  push STR("Night")                               # Day/Night labels, SP = 76
-  push STR("Day")
+  poke Calc(DayTable+0)      STR("Night")         # Day/Night labels, SP = 76
+  poke Calc(DayTable+1)      STR("Day")
 
-  push 0                                          # 0 == SLE, SP = 78
-  push 2                                          # Alarm if Mode <= 2
-  push Mode                                       # LogicType.Mode
-  push APC                                        # APC (via Logic Mirror)
-  push 0                                          # 0 == SLE
-  push 0.5                                        # Alarm if <= 0.5 l of water left
-  push VolumeOfLiquid                             # LogicType.VolumeOfLiquid
-  push LiquidSensor                               # Liquid Pipe Analyzer (direct)
-  push 0                                          # 0 == SLE
-  push 0.001                                      # Alarm if over 0.1 % Pollutant
-  push RatioPollutant                             # LogicType.RatioPollutant
-  push GasSensor                                  # Gas Sensor
-  push 0                                          # 0 == SLE
-  push 0.03                                       # Alarm if less than 3 % CO2
-  push RatioCarbonDioxide                         # LogicType.RatioCarbonDioxide
-  push GasSensor                                  # Gas Sensor
-  push 0.016                                      # Rough guesstimate for the SAP range (c) val
-  push 298                                        # Alarm if too far away from 25 Deg.C
-  push Temperature                                # LogicType.Temperature
-  push GasSensor                                  # Gas Sensor
-  push 0.3                                        # Rough guesstimate for the SAP range (c) val
-  push 75                                         # Alarm if too far away from 75kPa
-  push Pressure                                   # LogicType.Pressure
-  push GasSensor                                  # Gas Sensor
-  push 0                                          # 0 == SLE
-  push 0.03                                       # Alarm if Less than 3 % N2 gas
-  push RatioNitrogen                              # LogicType.RatioNitrogen
-  push GasSensor                                  # Gas Sensor
-  push 0                                          # 0 == SLE
-  push 0.001                                      # Alarm if over 0.1 % Volatiles
-  push RatioVolatiles                             # LogicType.RatioVolatiles
-  push GasSensor                                  # Gas Sensor
-  push 0                                          # 0 == SLE
-  push 0.015                                      # Alarm if less then 1.5 % Oxygen
-  push RatioOxygen                                # LogicType.RatioOxygen
-  push GasSensor                                  # Gas Sensor
-  push 0.08                                       # Rough guesstimate for the SAP range (c) val
-  push 305.65                                     # Alarm if too far away from 32.5 Deg.C
-  push Temperature                                # LogicType.Temperature
-  push LiquidSensor                               # Liquid Pipe Analyzer (direct).  After this, further data is defined in the extended section
+  #poke Calc(AlarmDefsStart+0) 0                   # 0 == SLE, SP = 78
+  poke Calc(AlarmDefsStart+1) 2                   # Alarm if Mode <= 2
+  poke Calc(AlarmDefsStart+2) Mode                # LogicType.Mode
+  poke Calc(AlarmDefsStart+3) APC                 # APC (via Logic Mirror)
+  #poke Calc(AlarmDefsStart+4) 0                   # 0 == SLE
+  poke Calc(AlarmDefsStart+5) 0.5                 # Alarm if <= 0.5 l of water left
+  poke Calc(AlarmDefsStart+6) VolumeOfLiquid      # LogicType.VolumeOfLiquid
+  poke Calc(AlarmDefsStart+7) LiquidSensor        # Liquid Pipe Analyzer (direct)
+  #poke Calc(AlarmDefsStart+8) 0                   # 0 == SLE
+  poke Calc(AlarmDefsStart+9) 0.001               # Alarm if over 0.1 % Pollutant
+  poke Calc(AlarmDefsStart+10) RatioPollutant     # LogicType.RatioPollutant
+  poke Calc(AlarmDefsStart+11) GasSensor          # Gas Sensor
+  #poke Calc(AlarmDefsStart+12) 0                  # 0 == SLE
+  poke Calc(AlarmDefsStart+13) 0.03               # Alarm if less than 3 % CO2
+  poke Calc(AlarmDefsStart+14) RatioCarbonDioxide # LogicType.RatioCarbonDioxide
+  poke Calc(AlarmDefsStart+15) GasSensor          # Gas Sensor
+  poke Calc(AlarmDefsStart+16) 0.016              # Rough guesstimate for the SAP range (c) val
+  poke Calc(AlarmDefsStart+17) 298                # Alarm if too far away from 25 Deg.C
+  poke Calc(AlarmDefsStart+18) Temperature        # LogicType.Temperature
+  poke Calc(AlarmDefsStart+19) GasSensor          # Gas Sensor
+  poke Calc(AlarmDefsStart+20) 0.3                # Rough guesstimate for the SAP range (c) val
+  poke Calc(AlarmDefsStart+21) 75                 # Alarm if too far away from 75kPa
+  poke Calc(AlarmDefsStart+22) Pressure           # LogicType.Pressure
+  poke Calc(AlarmDefsStart+23) GasSensor          # Gas Sensor
+  #poke Calc(AlarmDefsStart+24) 0                  # 0 == SLE
+  poke Calc(AlarmDefsStart+25) 0.03               # Alarm if Less than 3 % N2 gas
+  poke Calc(AlarmDefsStart+26) RatioNitrogen      # LogicType.RatioNitrogen
+  poke Calc(AlarmDefsStart+27) GasSensor          # Gas Sensor
+  #poke Calc(AlarmDefsStart+28) 0                  # 0 == SLE
+  poke Calc(AlarmDefsStart+29) 0.001              # Alarm if over 0.1 % Volatiles
+  poke Calc(AlarmDefsStart+30) RatioVolatiles     # LogicType.RatioVolatiles
+  poke Calc(AlarmDefsStart+31) GasSensor          # Gas Sensor
+  #poke Calc(AlarmDefsStart+32) 0                  # 0 == SLE
+  poke Calc(AlarmDefsStart+33) 0.015              # Alarm if less then 1.5 % Oxygen
+  poke Calc(AlarmDefsStart+34) RatioOxygen        # LogicType.RatioOxygen
+  poke Calc(AlarmDefsStart+35) GasSensor          # Gas Sensor
+  poke Calc(AlarmDefsStart+36) 0.08               # Rough guesstimate for the SAP range (c) val
+  poke Calc(AlarmDefsStart+37) 305.65             # Alarm if too far away from 32.5 Deg.C
+  poke Calc(AlarmDefsStart+38) Temperature        # LogicType.Temperature
+  poke Calc(AlarmDefsStart+39) LiquidSensor       # Liquid Pipe Analyzer (direct).  After this, further data is defined in the extended section
   
 learn_card:
   move Scratch3 -1                                # Now scan for the inserted card's color.  Or flag if we don't lock w/ a card, via -1
@@ -310,6 +311,7 @@ complete_provision:
   poke CardColor Scratch3                         # Card found (or no card inserted); save the current colour (or sentinel value) to stack index
   sb LogicDial Mode CropsMax                      # Set up the logic dial's maximum to be the crop limit
   sb LEDDisplay Mode Text                         # All LED displays to text mode to start
+  sb LEDDisplay Color Purple                      # All LED displays to purple text
   
 provision_wait_loop:
   sb AccessReader Color Scratch3                  # Colour is .... Blue: No Lock, Gray: Card Lock
@@ -327,90 +329,90 @@ section extended requires definitions
   move sp ExtendedTables
   poke AlarmTableInit ExtRulesEnd                 # Init alarm table start at extended end
  
-  push 0                                          # 0 == SLE, SP = 118
-  push 0.15                                       # Flag if less than 15% CO2
-  push RatioCarbonDioxide                         # LogicType.RatioCarbonDioxide
-  push GasSensor                                  # Gas Sensor
-  push 0                                          # 0 == SLE
-  push 0.55                                       # Flag if less than 55% O2 (inverted to "at least")
-  push RatioOxygen                                # LogicType.RatioOxygen
-  push GasSensor                                  # Gas Sensor
-  push 0                                          # 0 == SLE
-  push 293.15                                     # Flag if water less than 20 Deg.C
-  push Temperature                                # LogicType.Temperature
-  push LiquidSensor                               # Gas Sensor
-  push 0                                          # 0 == SLE
-  push 293.15                                     # Flag if air temp less than 20 Deg.C
-  push Temperature                                # LogicType.Temperature
-  push GasSensor                                  # Gas Sensor
-  push 0                                          # 0 == SLE
-  push 303.15                                     # Flag if air temp less than 30 Deg.C (inverted to "at least")
-  push Temperature                                # LogicType.Temperature
-  push GasSensor                                  # Gas Sensor
-  push 0                                          # 0 == SLE
-  push 95                                         # Flag if air pressure less than 95 kPa (inverted to "at least")
-  push Pressure                                   # LogicType.Pressure
-  push GasSensor                                  # Gas Sensor
-  push 0                                          # 0 == SLE
-  push 45                                         # Flag if air pressure less than 45 kPa (extraction safety)
-  push Pressure                                   # LogicType.Pressure
-  push GasSensor                                  # Gas Sensor
-  push 0                                          # 0 == SLE
-  push 80                                         # Flag if air pressure less than 80 kPa (call to fill with air)
-  push Pressure                                   # LogicType.Pressure
-  push GasSensor                                  # Gas Sensor
+  #poke Calc(AlarmDefsStart+40) 0                                          # 0 == SLE, SP = 118
+  poke Calc(AlarmDefsStart+41) 0.15                                       # Flag if less than 15% CO2
+  poke Calc(AlarmDefsStart+42) RatioCarbonDioxide                         # LogicType.RatioCarbonDioxide
+  poke Calc(AlarmDefsStart+43) GasSensor                                  # Gas Sensor
+  #poke Calc(AlarmDefsStart+44) 0                                          # 0 == SLE
+  poke Calc(AlarmDefsStart+45) 0.55                                       # Flag if less than 55% O2 (inverted to "at least")
+  poke Calc(AlarmDefsStart+46) RatioOxygen                                # LogicType.RatioOxygen
+  poke Calc(AlarmDefsStart+47) GasSensor                                  # Gas Sensor
+  #poke Calc(AlarmDefsStart+48) 0                                          # 0 == SLE
+  poke Calc(AlarmDefsStart+49) 293.15                                     # Flag if water less than 20 Deg.C
+  poke Calc(AlarmDefsStart+50) Temperature                                # LogicType.Temperature
+  poke Calc(AlarmDefsStart+51) LiquidSensor                               # Gas Sensor
+  #poke Calc(AlarmDefsStart+52) 0                                          # 0 == SLE
+  poke Calc(AlarmDefsStart+53) 293.15                                     # Flag if air temp less than 20 Deg.C
+  poke Calc(AlarmDefsStart+54) Temperature                                # LogicType.Temperature
+  poke Calc(AlarmDefsStart+55) GasSensor                                  # Gas Sensor
+  #poke Calc(AlarmDefsStart+56) 0                                          # 0 == SLE
+  poke Calc(AlarmDefsStart+57) 308.15                                     # Flag if air temp less than 35 Deg.C (inverted to "at least")
+  poke Calc(AlarmDefsStart+58) Temperature                                # LogicType.Temperature
+  poke Calc(AlarmDefsStart+59) GasSensor                                  # Gas Sensor
+  #poke Calc(AlarmDefsStart+60) 0                                          # 0 == SLE
+  poke Calc(AlarmDefsStart+61) 95                                         # Flag if air pressure less than 95 kPa (inverted to "at least")
+  poke Calc(AlarmDefsStart+62) Pressure                                   # LogicType.Pressure
+  poke Calc(AlarmDefsStart+63) GasSensor                                  # Gas Sensor
+  #poke Calc(AlarmDefsStart+64) 0                                          # 0 == SLE
+  poke Calc(AlarmDefsStart+65) 45                                         # Flag if air pressure less than 45 kPa (extraction safety)
+  poke Calc(AlarmDefsStart+66) Pressure                                   # LogicType.Pressure
+  poke Calc(AlarmDefsStart+67) GasSensor                                  # Gas Sensor
+  #poke Calc(AlarmDefsStart+68) 0                                          # 0 == SLE
+  poke Calc(AlarmDefsStart+69) 80                                         # Flag if air pressure less than 80 kPa (call to fill with air)
+  poke Calc(AlarmDefsStart+70) Pressure                                   # LogicType.Pressure
+  poke Calc(AlarmDefsStart+71) GasSensor                                  # Gas Sensor
   
-  push HASH("SeedBag_Potato")                     # Seed Hash Table, SP = 150
-  push HASH("SeedBag_Soybean")
-  push HASH("SeedBag_Rice")
-  push HASH("SeedBag_Tomato")
-  push HASH("SeedBag_Wheet")
-  push HASH("SeedBag_Fern")
-  push HASH("SeedBag_DargaFern")
-  push HASH("SeedBag_Cocoa")
-  push HASH("SeedBag_Corn")
-  push HASH("SeedBag_Pumpkin")
-  push HASH("SeedBag_WinterspawnAlpha")
-  push HASH("SeedBag_WinterspawnBeta")
-  push HASH("SeedBag_HadesAlpha")
-  push HASH("SeedBag_HadesBeta")
-  push HASH("ItemTropicalPlant")
-  push HASH("ItemPeaceLily")
-  push HASH("SeedBag_SugarCane")
-  push HASH("ItemFlax")
-  push HASH("ItemGorse")
-  push HASH("SeedBag_Strawberry")
-  push HASH("SeedBag_Blueberry")
-  push HASH("SeedBag_Watermelon")
-  push HASH("ItemGrass")
-  push HASH("SeedBag_Mushroom")
-  push HASH("ItemPlantSwitchGrass")
+  poke Calc(SeedHashTable+0)  HASH("SeedBag_Potato")                       # Seed Hash Table, SP = 150
+  poke Calc(SeedHashTable+1)  HASH("SeedBag_Soybean")
+  poke Calc(SeedHashTable+2)  HASH("SeedBag_Rice")
+  poke Calc(SeedHashTable+3)  HASH("SeedBag_Tomato")
+  poke Calc(SeedHashTable+4)  HASH("SeedBag_Wheet")
+  poke Calc(SeedHashTable+5)  HASH("SeedBag_Fern")
+  poke Calc(SeedHashTable+6)  HASH("SeedBag_DargaFern")
+  poke Calc(SeedHashTable+7)  HASH("SeedBag_Cocoa")
+  poke Calc(SeedHashTable+8)  HASH("SeedBag_Corn")
+  poke Calc(SeedHashTable+9)  HASH("SeedBag_Pumpkin")
+  poke Calc(SeedHashTable+10) HASH("SeedBag_WinterspawnAlpha")
+  poke Calc(SeedHashTable+11) HASH("SeedBag_WinterspawnBeta")
+  poke Calc(SeedHashTable+12) HASH("SeedBag_HadesAlpha")
+  poke Calc(SeedHashTable+13) HASH("SeedBag_HadesBeta")
+  poke Calc(SeedHashTable+14) HASH("ItemTropicalPlant")
+  poke Calc(SeedHashTable+15) HASH("ItemPeaceLily")
+  poke Calc(SeedHashTable+16) HASH("SeedBag_SugarCane")
+  poke Calc(SeedHashTable+17) HASH("ItemFlax")
+  poke Calc(SeedHashTable+18) HASH("ItemGorse")
+  poke Calc(SeedHashTable+19) HASH("SeedBag_Strawberry")
+  poke Calc(SeedHashTable+20) HASH("SeedBag_Blueberry")
+  poke Calc(SeedHashTable+21) HASH("SeedBag_Watermelon")
+  poke Calc(SeedHashTable+22) HASH("ItemGrass")
+  poke Calc(SeedHashTable+23) HASH("SeedBag_Mushroom")
+  poke Calc(SeedHashTable+24) HASH("ItemPlantSwitchGrass")
   
-  push HASH("ItemPotato")                         # Fruit Hash Table, SP = 175
-  push HASH("ItemSoybean")
-  push HASH("ItemRice")
-  push HASH("ItemTomato")
-  push HASH("ItemWheat")
-  push HASH("ItemFern")
-  push HASH("ItemFilterFern")
-  push HASH("ItemCocoaTree")
-  push HASH("ItemCorn")
-  push HASH("ItemPumpkin")
-  push HASH("ItemPlantEndothermic_Genepool1")
-  push HASH("ItemPlantEndothermic_Genepool2")
-  push HASH("ItemPlantThermogenic_Genepool1")
-  push HASH("ItemPlantThermogenic_Genepool2")
-  push HASH("ItemTropicalPlant")
-  push HASH("ItemPeaceLily")
-  push HASH("ItemSugarCane")
-  push HASH("ItemFlax")
-  push HASH("ItemGorse")
-  push HASH("ItemStrawberry")
-  push HASH("ItemBlueberry")
-  push HASH("ItemWatermelon")
-  push HASH("ItemGrass")
-  push HASH("ItemMushroom")
-  push HASH("ItemPlantSwitchGrass")
+  poke Calc(FruitHashTable+0)  HASH("ItemPotato")                         # Fruit Hash Table, SP = 175
+  poke Calc(FruitHashTable+1)  HASH("ItemSoybean")
+  poke Calc(FruitHashTable+2)  HASH("ItemRice")
+  poke Calc(FruitHashTable+3)  HASH("ItemTomato")
+  poke Calc(FruitHashTable+4)  HASH("ItemWheat")
+  poke Calc(FruitHashTable+5)  HASH("ItemFern")
+  poke Calc(FruitHashTable+6)  HASH("ItemFilterFern")
+  poke Calc(FruitHashTable+7)  HASH("ItemCocoaTree")
+  poke Calc(FruitHashTable+8)  HASH("ItemCorn")
+  poke Calc(FruitHashTable+9)  HASH("ItemPumpkin")
+  poke Calc(FruitHashTable+10) HASH("ItemPlantEndothermic_Genepool1")
+  poke Calc(FruitHashTable+11) HASH("ItemPlantEndothermic_Genepool2")
+  poke Calc(FruitHashTable+12) HASH("ItemPlantThermogenic_Genepool1")
+  poke Calc(FruitHashTable+13) HASH("ItemPlantThermogenic_Genepool2")
+  poke Calc(FruitHashTable+14) HASH("ItemTropicalPlant")
+  poke Calc(FruitHashTable+15) HASH("ItemPeaceLily")
+  poke Calc(FruitHashTable+16) HASH("ItemSugarCane")
+  poke Calc(FruitHashTable+17) HASH("ItemFlax")
+  poke Calc(FruitHashTable+18) HASH("ItemGorse")
+  poke Calc(FruitHashTable+19) HASH("ItemStrawberry")
+  poke Calc(FruitHashTable+20) HASH("ItemBlueberry")
+  poke Calc(FruitHashTable+21) HASH("ItemWatermelon")
+  poke Calc(FruitHashTable+22) HASH("ItemGrass")
+  poke Calc(FruitHashTable+23) HASH("ItemMushroom")
+  poke Calc(FruitHashTable+24) HASH("ItemPlantSwitchGrass")
 
                                                   # Table used to build rule masks (control, alarm, invert)
                                                   #   /- Air Pressure < 80 kPa
@@ -434,42 +436,34 @@ section extended requires definitions
                                                   #   ||||||||||||||||||/- Reserved
                                                   # 0b0000100000000000000
 
-  push 0b0100000000000000010                      # Equipment Control Table, SP = 200
-  push 0b0000100000000000000                      # Run if air temp <= 20C while not low power or low air pressure
-  push On                                         # LogicType.On
-  push WallHeater
-  push 0b0100000000000000010                      # Run if air temp > 30C while not low power or low air pressure
-  push 0b0001000000000000000                      #
-  push On                                         # LogicType.On
-  push WallCooler
-  push 0b0100000000000000010                      # Run if air temp > 30C while not low power or low air pressure
-  push 0b0001000000000000000                      #
-  push On                                         # LogicType.On
-  push WallCooler2
-  push 0b0100000000000000010                      # Run if air temp > 30C or <= 20C or "bad" while not low power or low air pressure
-  push 0b0001100000000100000                      #
-  push Mode                                       # LogicType.Mode
-  push AirConditioner
-  push 0b0100000000000000010                      # Active vent on if air pressure high or o2 level high or air alarm while not low power or low air pressure
-  push 0b0011001100111011000                      #
-  push On                                         # LogicType.On
-  push ActiveVent
-  push 0b0000000000000000010                      # Liquid heater on if water temp <= 20C while not low power
-  push 0b0000010000000000000                      #
-  push On                                         # LogicType.On
-  push LiquidHeater
-  push 0b0000000000000000000                      # Volume pump on if low pressure
-  push 0b1000000000000000000                      #
-  push On                                         # LogicType.On
-  push VolumePump
-  push 0b0010000000000000000                      # Gas Mixer on if low pressure, Low Gases, while not high pressure
-  push 0b1100001010100100000                      #
-  push On                                         # LogicType.On
-  push GasMixer
-  push 0b0000000000000000000                      # Door always closed (every 2 or 3 ticks, enough time to get in)
-  push 0b0000000000000000000                      #
-  push Open                                       # LogicType.Open
-  push GlassDoor                                  # Glass door, SP = 236
+# Equipment Control Table, SP = 200
+  poke Calc(RuleTableStart+0) 0b01000000000000000100000100000000000000   # Run if air temp <= 20C while not low power or low air pressure
+  poke Calc(RuleTableStart+1) On                                         # LogicType.On
+  poke Calc(RuleTableStart+2) WallHeater
+  poke Calc(RuleTableStart+3) 0b01000000000000000100001000000000000000   # Run if air temp > 30C while not low power or low air pressure
+  poke Calc(RuleTableStart+4) On                                         # LogicType.On
+  poke Calc(RuleTableStart+5) WallCooler
+  poke Calc(RuleTableStart+6) 0b01000000000000000100001000000000000000   # Run if air temp > 30C while not low power or low air pressure
+  poke Calc(RuleTableStart+7) On                                         # LogicType.On
+  poke Calc(RuleTableStart+8) WallCooler2
+  poke Calc(RuleTableStart+9) 0b01000000000000000100001100000000100000   # Run if air temp > 30C or <= 20C or "bad" while not low power or low air pressure
+  poke Calc(RuleTableStart+10) Mode                                       # LogicType.Mode
+  poke Calc(RuleTableStart+11) AirConditioner
+  poke Calc(RuleTableStart+12) 0b01000000000000000100011001100111011000   # Active vent on if air pressure high or o2 level high or air alarm while not low power or low air pressure
+  poke Calc(RuleTableStart+13) On                                         # LogicType.On
+  poke Calc(RuleTableStart+14) ActiveVent
+  poke Calc(RuleTableStart+15) 0b00000000000000000100000010000000000000   # Liquid heater on if water temp <= 20C while not low power
+  poke Calc(RuleTableStart+16) On                                         # LogicType.On
+  poke Calc(RuleTableStart+17) LiquidHeater
+  poke Calc(RuleTableStart+18) 0b00000000000000000001000000000000000000   # Volume pump on if low pressure
+  poke Calc(RuleTableStart+19) On                                         # LogicType.On
+  poke Calc(RuleTableStart+20) VolumePump
+  poke Calc(RuleTableStart+21) 0b00100000000000000001100001010100100000   # Gas Mixer on if low pressure, Low Gases, while not high pressure
+  poke Calc(RuleTableStart+22) On                                         # LogicType.On
+  poke Calc(RuleTableStart+23) GasMixer
+  poke Calc(RuleTableStart+24) 0b00000000000000000000000000000000000000   # Door always closed (every 2 or 3 ticks, enough time to get in)
+  poke Calc(RuleTableStart+25) Open                                       # LogicType.Open
+  poke Calc(RuleTableStart+26) GlassDoor                                  # Glass door, SP = 236
   
   sb AccessReader Color Purple                    # Purple LED means extended functions are set up
   sb PressureReg Setting 95                       # Regulator to 95kPa - Configure equipment defaults
@@ -501,10 +495,12 @@ lock_dial:
   ext Scratch2 Scratch1 16 16
   poke OnTime Scratch2
   ext WarnMask Scratch1 31 16                     # Intentionally off by one, since the result of the LSB technically maps to "no warning", so it's not useful or worth storing
+
+  # TODO need to read temp SP and write to AC somehow
+
   move Countdown 0                                # Reset control state to "lights off, instant switch to day, no warnings"
   move LightsOn 0
-  move WarnFlags 0                                # This one is important because it'll be written to the active-alarms stack index, which the auxiliary controller monitors to run the ventilation equipment
-  move ControlFlags 0                             # Zero control flags
+  move WarnFlags 0
   bne EnabExtended 3 update_common                # Don't update hash data if in Standard mode (tables not initialized)
   add Scratch1 SeedHashTable CropSelect           # Read Seed/Fruit hash tables and store for LArRE
   get Scratch2 db Scratch1
@@ -545,13 +541,11 @@ end_alarms:
   xor WarnFlags WarnFlags WarnInverts             # Once we finish the alarm list, apply invert mask, for the SAP/SLE -> SNA/SGT logical conversions.  And also rule inverts, for extended mode.
   and ControlFlags WarnFlags ControlMask          # Extract all the equipment rules from the warnings and store
   and WarnFlags WarnFlags WarnMask                # Now mask out warnings on a per-crop basis, by pulling the pre-set (from idle mode) mask flags.  Also clears leftover bits from the last scan for free
-  or ControlFlags ControlFlags WarnFlags          # Merge the masked warnings back into the control flags for later 
+  or ControlFlags ControlFlags WarnFlags          # Merge the masked warnings back into the control flags for later
 
 update_common:                                    # Update the display with current config data, and do some common work such as alarms, mode select, unlock, stack updates, etc
-  get Scratch1 db CardColor                       # Keep the card reader in sync with the access card color needed (stack value)
-  sb AccessReader Mode Scratch1
-  poke ActiveAlarms WarnFlags                     # And update the stack value for the current active warnings)
   yield                                           # Tick wait here for entire system
+  get Scratch1 db CardColor                       # Check if we're not using a card (> 12)
   sgt Scratch1 Scratch1 12                        # Process Locked/Unlocked state, allowing perma-unlock if provisioned with no card
   lb Unlocked AccessReader Setting Sum            # Check if the stop switch can be checked, by seeing if the card reader has the right card OR if Scratch1 is set (i.e. colour needed == -1)
   or Unlocked Unlocked Scratch1
@@ -559,13 +553,12 @@ update_common:                                    # Update the display with curr
   select Scratch1 Unlocked Green Red              # Change access reader colour based on unlock state
   sb AccessReader Color Scratch1                  # Access reader color = unlock state
   lb Scratch1 LogicSwitch Setting Sum             # Set switch colour based on run state + unlock state
-  seq Scratch1 Scratch1 Active                    # Scratch1 := Switch matches state
+  seq Scratch4 Scratch1 Active                    # Scratch1 := Switch matches state
   select Scratch3 Active Green Red                # Switch is Green if on + onlocked, red if off + unlocked (or if switch matches state)
-  select Scratch2 Scratch1 Scratch3 Orange        # If unlocked or matches, use unlocked colour.  If locked and mismatch, orange.
-  select Scratch1 Unlocked Scratch3 Scratch2
-  sb LogicSwitch Color Scratch1
-  beqz Unlocked is_locked                         # If unlocked, set Active state to switch state
-  lb Active LogicSwitch Setting Sum
+  select Scratch2 Scratch4 Scratch3 Orange        # If unlocked or matches, use unlocked colour.  If locked and mismatch, orange.
+  select Scratch4 Unlocked Scratch3 Scratch2
+  sb LogicSwitch Color Scratch4
+  select Active Unlocked Scratch1 Active
   
 is_locked:                                        # If the switch is locked we skip reading active state, and move on to updating the displays
   sb GrowLight On LightsOn                        # Update lights with 'lights on' state
@@ -579,13 +572,13 @@ is_locked:                                        # If the switch is locked we s
   add Scratch1 CropSelect CropTable
   get Scratch1 db Scratch1                        # Write the name of the selected crop to the top display
   get Scratch2 db Display1
-  s Scratch2 Color Purple
-  s Scratch2 Setting Scratch1
   sb LEDDisplay On Active                         # And toggle displays based on active state
   s Scratch2 On 1                                 # Turn top display on all the time.  Due to how updates are processed, this will make the top display blink when the system is inactive
   beqz Active equip_ctrl                          # If not active, jump to mode handler
   
 start_warnings:
+  get Scratch4 db Display2                        # Then the RefID of the middle display
+  get Scratch2 db Display3                        # Load RefID of bottom display
   bgtz WarnWait nowarn                            # Next if WarnWait is still ticking down, we don't show any warnings
   bnez WarnFlags haswarning                       # Then if we *have* warnings, show them
   j nowarn                                        # Otherwise we just jump to no-warnings.
@@ -598,13 +591,9 @@ nowarn:
   move WarnIdx 0
   sub WarnWait WarnWait EnabExtended              # Decrement warning wait timer (until we iterate through active warnings again)
   add Scratch1 LightsOn DayTable                  # Now update display for day/night display
-  get Scratch1 db Scratch1
-  get Scratch2 db Display2
-  s Scratch2 Setting Scratch1
-  s Scratch2 Color Purple
-  get Scratch2 db Display3                        # And then update display for time left in day/night cycle step
-  srl Scratch3 Countdown 1
-  s Scratch2 Setting Scratch3
+  get Scratch3 db Scratch1
+  s Scratch4 Color Purple
+  srl Scratch1 Countdown 1                       # And then update display for time left in day/night cycle step
   s Scratch2 Color Pink
   s Scratch2 Mode Seconds
   j equip_ctrl                                    # Jump to equipment control handler
@@ -618,18 +607,16 @@ haswarning:                                       # If we have a warning, then a
   beqz Scratch2 haswarning                        # If not, we need to iterate further to find the next set warning flag (while incrementing the index as well)
   
 foundwarning:
-  get Scratch1 db WarningTable                    # Display "WARN" text, first by getting the warning teext
-  get Scratch2 db Display2                        # Then the RefID of the middle display
-  s Scratch2 Setting Scratch1                     # And set the warning text color/text on this display (it's already in text mode, we don't need to set that again)
-  s Scratch2 Color Orange
+  get Scratch3 db WarningTable                    # Display "WARN" text, first by getting the warning teext
+  s Scratch4 Color Orange
   add Scratch1 WarnIdx WarningTable               # Now get the text correponding to the current displayed warning flag
   get Scratch1 db Scratch1                        # by doing array index math and loading that stack index to Scratch1
-  get Scratch2 db Display3                        # Load RefID of bottom display
-  s Scratch2 Setting Scratch1                     # And set text mode + colour + text on that lower display
   s Scratch2 Mode Text
   s Scratch2 Color Orange                         # Lastly, fall through to equipment control handler
   
 equip_ctrl:
+  s Scratch2 Setting Scratch1
+  s Scratch4 Setting Scratch3
   bne EnabExtended 3 next_mode                    # Skip control handler if extended functions not enabled
   move sp RuleTableEnd
   
@@ -637,7 +624,7 @@ next_rule:
   pop Scratch1                                    # Pull rule definition from stack and then process
   pop Scratch2
   pop Scratch3
-  pop Scratch4
+  srl Scratch4 Scratch3 19
   and Scratch3 Scratch3 ControlFlags              # Rules are a pair of AND masks with the control flags.  Output = Scratch3 && !Scratch4
   and Scratch4 Scratch4 ControlFlags
   snez Scratch3 Scratch3
