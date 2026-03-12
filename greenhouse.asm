@@ -94,7 +94,7 @@ section definitions
   define SeedHashTable      150                   # Start of seed item hash table
   define FruitHashTable     175                   # Start of fruit item hash table
   define RuleTableStart     200                   # Equipment control rule table
-  define RuleTableEnd       236                   # End of Equipment control table + 1 for pop
+  define RuleTableEnd       230                   # End of Equipment control table + 1 for pop
   
   ### UI Devices.  Change these to the vanilla equivalents for full vanilla friendliness ####
   
@@ -118,8 +118,10 @@ section definitions
   define WallCooler2        HASH("StructureWaterWallCooler")
   define VolumePump         HASH("StructureVolumePump")
   define PressureReg        HASH("StructurePressureRegulator")
+  define BackPressureReg    HASH("StructureBackPressureRegulator")
   define GasMixer           HASH("StructureGasMixer")
   define GlassDoor          HASH("StructureGlassDoor")
+  define Filtration         Hash("StructureFiltration")
   
   ### Various constants used to shrink output program size ####
   
@@ -155,7 +157,74 @@ section definitions
   define WarnTimescale      6                     # How many ticks to display each individual warning for (must be a multiple of 2 and 3)
   define WarnInverts        0b0011001010101101000 # Warning alarm/control rule invert masks (constant)
   define ControlMask        0b1111111100100001000 # Bits that are passed through for control flags regardless of alarm state
-  
+
+
+  define TIME_BITFIELD_LEN  13
+
+  define TIME_100s          0xC8
+  define TIME_200s          0x190
+  define TIME_300s          0x258
+  define TIME_480s          0x3C0
+  define TIME_500s          0x3E8
+  define TIME_600s          0x4B0
+  define TIME_1024s         0x800
+  define TIME_1H            0x1C20
+
+  define LIGHT_EFFICIENCY   0.8
+  define ON_TIME_100s       Calc(TIME_100s/LIGHT_EFFICIENCY<<TIME_BITFIELD_LEN)
+  define ON_TIME_200s       Calc(TIME_200s/LIGHT_EFFICIENCY<<TIME_BITFIELD_LEN)
+  define ON_TIME_300s       Calc(TIME_300s/LIGHT_EFFICIENCY<<TIME_BITFIELD_LEN)
+  define ON_TIME_480s       Calc(TIME_480s/LIGHT_EFFICIENCY<<TIME_BITFIELD_LEN)
+  define ON_TIME_500s       Calc(TIME_500s/LIGHT_EFFICIENCY<<TIME_BITFIELD_LEN)
+  define ON_TIME_600s       Calc(TIME_600s/LIGHT_EFFICIENCY<<TIME_BITFIELD_LEN)
+  define ON_TIME_1H         Calc(TIME_1H<<TIME_BITFIELD_LEN)
+
+  define OFF_TIME_100s      Calc(TIME_100s)
+  define OFF_TIME_200s      Calc(TIME_200s)
+  define OFF_TIME_300s      Calc(TIME_300s)
+  define OFF_TIME_480s      Calc(TIME_480s)
+  define OFF_TIME_500s      Calc(TIME_500s)
+  define OFF_TIME_600s      Calc(TIME_600s)
+  define OFF_TIME_1H        Calc(TIME_1H)
+
+  define ALARM_POWER        0x1
+  define ALARM_LOW_WATER    0x2
+  define ALARM_HIGH_POL     0x4
+  define ALARM_LOW_CO2      0x8
+  define ALARM_BAD_ATEMP    0x10
+  define ALARM_BAD_PRES     0x20
+  define ALARM_LOW_N2       0x40
+  define ALARM_HIGH_VOL     0x80
+  define ALARM_LOW_O2       0x100
+  define ALARM_BAD_WTEMP    0x200
+
+  define RULE_LOW_CO2       0x400
+  define RULE_HIGH_O2       0x800
+  define RULE_COLD_WATER    0x1000
+  define RULE_COLD_AIR      0x2000
+  define RULE_WARM_AIR      0x4000
+  define RULE_HIGH_PRES     0x8000
+  define RULE_LOLO_PRES     0x10000
+  define RULE_LO_PRES       0x20000
+
+  define ALARM_BITS_OFFSET  Calc(TIME_BITFIELD_LEN*2)
+  define ALARMS_COMMON      Calc(ALARM_POWER|ALARM_LOW_WATER|ALARM_BAD_WTEMP|ALARM_BAD_ATEMP|ALARM_BAD_PRES<<ALARM_BITS_OFFSET)
+  define ALARMS_STANDARD    Calc(ALARM_HIGH_POL|ALARM_LOW_CO2|ALARM_HIGH_VOL<<ALARM_BITS_OFFSET|ALARMS_COMMON)
+  define ALARMS_SOYBEAN     Calc(ALARM_LOW_N2<<ALARM_BITS_OFFSET|ALARMS_STANDARD)
+  define ALARMS_WINTER      Calc(ALARM_HIGH_POL|ALARM_LOW_O2|ALARM_LOW_N2<<ALARM_BITS_OFFSET|ALARMS_COMMON)
+  define ALARMS_HADES       Calc(ALARM_LOW_O2<<ALARM_BITS_OFFSET|ALARMS_COMMON)
+  define ALARMS_MUSHROOM    Calc(ALARM_LOW_O2<<ALARM_BITS_OFFSET|ALARMS_COMMON)
+
+
+  define CROP_TEMP_BIT_IDX  Calc(ALARM_BITS_OFFSET+10)
+  define T_ZERO_C           273.15
+
+  define TEMP_35_C          Calc(35<<CROP_TEMP_BIT_IDX)
+  define TEMP_30_C          Calc(30<<CROP_TEMP_BIT_IDX)
+  define TEMP_25_C          Calc(25<<CROP_TEMP_BIT_IDX)
+  define TEMP_20_C          Calc(20<<CROP_TEMP_BIT_IDX)
+
+
 ###############################################################################
 #  Provisioning Code - Sets up NVRAM, learns unlock card color, maps displays #
 ###############################################################################
@@ -202,43 +271,34 @@ init_tables:
   poke Calc(CropTable+21)  STR("Wtrmln")
   poke Calc(CropTable+22)  STR("Grass")
   poke Calc(CropTable+23)  STR("Mushrm")
-  poke Calc(CropTable+24)  STR("Swcgrs")
+  poke Calc(CropTable+24)  STR("Swtgrs")
   
-                                                  #  100s = 00C8t Tick conversions
-                                                  #  200s = 0190t
-                                                  #  300s = 0258t
-                                                  #  480s = 01E0t
-                                                  #  500s = 01F4t
-                                                  #  600s = 04B0t
-                                                  # 1024s = 0800t
-                                                  # 3600s = 1C20t
-  
-                                                  # Crop data table (Warn Mask, On Time, Off Time) (SP = 40)
-  poke Calc(TimesTable+0)   0x02BF02580190        # 0x02BF << 32 | 300s << 16 |  200s Potato
-  poke Calc(TimesTable+1)   0x02FF04B00258        # 0x02FF << 32 | 600s << 16 |  300s Soy
-  poke Calc(TimesTable+2)   0x02BF04B00258        # 0x02BF << 32 | 600s << 16 |  300s Rice
-  poke Calc(TimesTable+3)   0x02BF01E00258        # 0x02BF << 32 | 480s << 16 |  300s Tomato
-  poke Calc(TimesTable+4)   0x02BF04B00258        # 0x02BF << 32 | 600s << 16 |  300s Wheat
-  poke Calc(TimesTable+5)   0x02BF01E00258        # 0x02BF << 32 | 480s << 16 |  300s Fern
-  poke Calc(TimesTable+6)   0x02BF01E00258        # 0x02BF << 32 | 480s << 16 |  300s Darga Fern
-  poke Calc(TimesTable+7)   0x02BF01F40190        # 0x02BF << 32 | 500s << 16 |  200s Cocoa
-  poke Calc(TimesTable+8)   0x02BF01F40190        # 0x02BF << 32 | 500s << 16 |  200s Corn
-  poke Calc(TimesTable+9)   0x02BF01F400C8        # 0x02BF << 32 | 500s << 16 |  100s Pumpkin
-  poke Calc(TimesTable+10)  0x023F04B00258        # 0x023F << 32 | 600s << 16 |  300s Winterspawn
-  poke Calc(TimesTable+11)  0x023F04B00258        # 0x023F << 32 | 600s << 16 |  300s Winterspawn B
-  poke Calc(TimesTable+12)  0x033304B00258        # 0x0333 << 32 | 600s << 16 |  300s Hades Flower
-  poke Calc(TimesTable+13)  0x033304B00258        # 0x0333 << 32 | 600s << 16 |  300s Hades Flower B
-  poke Calc(TimesTable+14)  0x02BF04B00258        # 0x02BF << 32 | 600s << 16 |  300s Lily (T)
-  poke Calc(TimesTable+15)  0x02BF04B00258        # 0x02BF << 32 | 600s << 16 |  300s Lily (P)
-  poke Calc(TimesTable+16)  0x02BF01F40190        # 0x02BF << 32 | 500s << 16 |  200s Sugarcane
-  poke Calc(TimesTable+17)  0x02BF04B00258        # 0x02BF << 32 | 600s << 16 |  300s Gorse
-  poke Calc(TimesTable+18)  0x02BF04B00258        # 0x02BF << 32 | 600s << 16 |  300s Flax
-  poke Calc(TimesTable+19)  0x02BF04B00258        # 0x02BF << 32 | 600s << 16 |  300s Strawberry
-  poke Calc(TimesTable+20)  0x02BF04B00258        # 0x02BF << 32 | 600s << 16 |  300s Blueberry
-  poke Calc(TimesTable+21)  0x02BF04B00258        # 0x02BF << 32 | 600s << 16 |  300s Watermelon
-  poke Calc(TimesTable+22)  0x02BF04B00258        # 0x02BF << 32 | 600s << 16 |  300s Grass
-  poke Calc(TimesTable+23)  0x03B700001C20        # 0x03B7 << 32 |   0s << 16 | 3600s Mushroom
-  poke Calc(TimesTable+24)  0x02BF04B00258        # 0x02BF << 32 | 600s << 16 |  300s Switchgrass
+                                                                         # Crop data table (Warn Mask, On Time, Off Time) (SP = 40)
+  poke Calc(TimesTable+0)   Calc(TEMP_25_C|ON_TIME_300s|OFF_TIME_200s|ALARMS_STANDARD)        # 0x02BF << 32 | 300s << 16 |  200s Potato
+  poke Calc(TimesTable+1)   Calc(TEMP_25_C|ON_TIME_600s|OFF_TIME_300s|ALARMS_SOYBEAN)         # 0x02FF << 32 | 600s << 16 |  300s Soy
+  poke Calc(TimesTable+2)   Calc(TEMP_25_C|ON_TIME_600s|OFF_TIME_300s|ALARMS_STANDARD)        # 0x02BF << 32 | 600s << 16 |  300s Rice
+  poke Calc(TimesTable+3)   Calc(TEMP_25_C|ON_TIME_480s|OFF_TIME_300s|ALARMS_STANDARD)        # 0x02BF << 32 | 480s << 16 |  300s Tomato
+  poke Calc(TimesTable+4)   Calc(TEMP_25_C|ON_TIME_600s|OFF_TIME_300s|ALARMS_STANDARD)        # 0x02BF << 32 | 600s << 16 |  300s Wheat
+  poke Calc(TimesTable+5)   Calc(TEMP_25_C|ON_TIME_480s|OFF_TIME_300s|ALARMS_STANDARD)        # 0x02BF << 32 | 480s << 16 |  300s Fern
+  poke Calc(TimesTable+6)   Calc(TEMP_25_C|ON_TIME_480s|OFF_TIME_300s|ALARMS_STANDARD)        # 0x02BF << 32 | 480s << 16 |  300s Darga Fern
+  poke Calc(TimesTable+7)   Calc(TEMP_35_C|ON_TIME_500s|OFF_TIME_200s|ALARMS_STANDARD)        # 0x02BF << 32 | 500s << 16 |  200s Cocoa
+  poke Calc(TimesTable+8)   Calc(TEMP_25_C|ON_TIME_500s|OFF_TIME_200s|ALARMS_STANDARD)        # 0x02BF << 32 | 500s << 16 |  200s Corn
+  poke Calc(TimesTable+9)   Calc(TEMP_25_C|ON_TIME_500s|OFF_TIME_100s|ALARMS_STANDARD)        # 0x02BF << 32 | 500s << 16 |  100s Pumpkin
+  poke Calc(TimesTable+10)  Calc(TEMP_20_C|ON_TIME_600s|OFF_TIME_300s|ALARMS_WINTER)          # 0x023F << 32 | 600s << 16 |  300s Winterspawn
+  poke Calc(TimesTable+11)  Calc(TEMP_20_C|ON_TIME_600s|OFF_TIME_300s|ALARMS_WINTER)          # 0x023F << 32 | 600s << 16 |  300s Winterspawn B
+  poke Calc(TimesTable+12)  Calc(TEMP_25_C|ON_TIME_600s|OFF_TIME_300s|ALARMS_HADES)           # 0x0333 << 32 | 600s << 16 |  300s Hades Flower
+  poke Calc(TimesTable+13)  Calc(TEMP_25_C|ON_TIME_600s|OFF_TIME_300s|ALARMS_HADES)           # 0x0333 << 32 | 600s << 16 |  300s Hades Flower B
+  poke Calc(TimesTable+14)  Calc(TEMP_25_C|ON_TIME_600s|OFF_TIME_300s|ALARMS_STANDARD)        # 0x02BF << 32 | 600s << 16 |  300s Lily (T)
+  poke Calc(TimesTable+15)  Calc(TEMP_25_C|ON_TIME_600s|OFF_TIME_300s|ALARMS_STANDARD)        # 0x02BF << 32 | 600s << 16 |  300s Lily (P)
+  poke Calc(TimesTable+16)  Calc(TEMP_25_C|ON_TIME_500s|OFF_TIME_200s|ALARMS_STANDARD)        # 0x02BF << 32 | 500s << 16 |  200s Sugarcane
+  poke Calc(TimesTable+17)  Calc(TEMP_20_C|ON_TIME_600s|OFF_TIME_300s|ALARMS_STANDARD)        # 0x02BF << 32 | 600s << 16 |  300s Gorse
+  poke Calc(TimesTable+18)  Calc(TEMP_20_C|ON_TIME_600s|OFF_TIME_300s|ALARMS_STANDARD)        # 0x02BF << 32 | 600s << 16 |  300s Flax
+  poke Calc(TimesTable+19)  Calc(TEMP_25_C|ON_TIME_600s|OFF_TIME_300s|ALARMS_STANDARD)        # 0x02BF << 32 | 600s << 16 |  300s Strawberry
+  poke Calc(TimesTable+20)  Calc(TEMP_25_C|ON_TIME_600s|OFF_TIME_300s|ALARMS_STANDARD)        # 0x02BF << 32 | 600s << 16 |  300s Blueberry
+  poke Calc(TimesTable+21)  Calc(TEMP_25_C|ON_TIME_600s|OFF_TIME_300s|ALARMS_STANDARD)        # 0x02BF << 32 | 600s << 16 |  300s Watermelon
+  poke Calc(TimesTable+22)  Calc(TEMP_20_C|ON_TIME_600s|OFF_TIME_300s|ALARMS_STANDARD)        # 0x02BF << 32 | 600s << 16 |  300s Grass
+  poke Calc(TimesTable+23)  Calc(TEMP_25_C|OFF_TIME_1H|ALARMS_MUSHROOM)                       # 0x03B7 << 32 |   0s << 16 | 3600s Mushroom
+  poke Calc(TimesTable+24)  Calc(TEMP_30_C|ON_TIME_600s|OFF_TIME_300s|ALARMS_STANDARD)        # 0x02BF << 32 | 600s << 16 |  300s Switchgrass
 
   poke Calc(WarningTable+0)  STR("Warn")          # Warnings table, SP = 65
   poke Calc(WarningTable+1)  STR("Power")         # Warnings table, SP = 66
@@ -272,7 +332,7 @@ init_tables:
   poke Calc(AlarmDefsStart+14) RatioCarbonDioxide # LogicType.RatioCarbonDioxide
   poke Calc(AlarmDefsStart+15) GasSensor          # Gas Sensor
   poke Calc(AlarmDefsStart+16) 0.016              # Rough guesstimate for the SAP range (c) val
-  poke Calc(AlarmDefsStart+17) 298                # Alarm if too far away from 25 Deg.C
+  #poke Calc(AlarmDefsStart+17) 298                # Alarm if too far away from (VARIABLE) Deg.C
   poke Calc(AlarmDefsStart+18) Temperature        # LogicType.Temperature
   poke Calc(AlarmDefsStart+19) GasSensor          # Gas Sensor
   poke Calc(AlarmDefsStart+20) 0.3                # Rough guesstimate for the SAP range (c) val
@@ -338,15 +398,15 @@ section extended requires definitions
   poke Calc(AlarmDefsStart+46) RatioOxygen                                # LogicType.RatioOxygen
   poke Calc(AlarmDefsStart+47) GasSensor                                  # Gas Sensor
   #poke Calc(AlarmDefsStart+48) 0                                          # 0 == SLE
-  poke Calc(AlarmDefsStart+49) 293.15                                     # Flag if water less than 20 Deg.C
+  poke Calc(AlarmDefsStart+49) 295.15                                     # Flag if water less than 22 Deg.C
   poke Calc(AlarmDefsStart+50) Temperature                                # LogicType.Temperature
   poke Calc(AlarmDefsStart+51) LiquidSensor                               # Gas Sensor
   #poke Calc(AlarmDefsStart+52) 0                                          # 0 == SLE
-  poke Calc(AlarmDefsStart+53) 293.15                                     # Flag if air temp less than 20 Deg.C
+  #poke Calc(AlarmDefsStart+53) 293.15                                     # Flag if air temp less than (VARIABLE) Deg.C
   poke Calc(AlarmDefsStart+54) Temperature                                # LogicType.Temperature
   poke Calc(AlarmDefsStart+55) GasSensor                                  # Gas Sensor
   #poke Calc(AlarmDefsStart+56) 0                                          # 0 == SLE
-  poke Calc(AlarmDefsStart+57) 308.15                                     # Flag if air temp less than 35 Deg.C (inverted to "at least")
+  #poke Calc(AlarmDefsStart+57) 308.15                                     # Flag if air temp less than (VARIABLE) Deg.C (inverted to "at least")
   poke Calc(AlarmDefsStart+58) Temperature                                # LogicType.Temperature
   poke Calc(AlarmDefsStart+59) GasSensor                                  # Gas Sensor
   #poke Calc(AlarmDefsStart+60) 0                                          # 0 == SLE
@@ -463,14 +523,18 @@ section extended requires definitions
   poke Calc(RuleTableStart+23) GasMixer
   poke Calc(RuleTableStart+24) 0b00000000000000000000000000000000000000   # Door always closed (every 2 or 3 ticks, enough time to get in)
   poke Calc(RuleTableStart+25) Open                                       # LogicType.Open
-  poke Calc(RuleTableStart+26) GlassDoor                                  # Glass door, SP = 236
+  poke Calc(RuleTableStart+26) GlassDoor                                  # Glass door, SP = 227
+  poke Calc(RuleTableStart+27) 0b01000000000000000100011001100111011000   # Filtration on when active vent on
+  poke Calc(RuleTableStart+28) Mode                                       # Mode
+  poke Calc(RuleTableStart+29) Filtration
   
-  sb AccessReader Color Purple                    # Purple LED means extended functions are set up
-  sb PressureReg Setting 95                       # Regulator to 95kPa - Configure equipment defaults
-  sb AirConditioner Setting 298.15                # AC to 25C
-  sb VolumePump Setting 5                         # Pump 5 l/t into greenhouse when there's a call for air fill
+  sb AccessReader Color Orange                    # Orange LED means extended functions are set up
+  sb PressureReg Setting 94                       # Regulator to 95kPa - Configure equipment defaults
+  sb BackPressureReg Setting 99                   # Regulator to 95kPa - Configure equipment defaults
+  sb VolumePump Setting 1                         # Pump 1 l/t into greenhouse when there's a call for air fill
   sb GasMixer Setting 50                          # Init to 50/50 split
   sb ActiveVent Mode 1                            # Active vent INWARD to pull air (otherwise, we're going to pop the greenhouse)
+  sb ActiveVent PressureInternal 10050            # Don't pull so much air we drain the greenhouse and then over-correct
   
 end_extended:
   j end_extended
@@ -490,17 +554,24 @@ lock_dial:
   sb LogicDial Setting CropSelect                 # Then write our current crop select back to the dial (does nothing if we're unlocked as we'd be writing what it already was.  In locked mode, may do something)
   add Scratch1 CropSelect TimesTable              # Now take the currently selected crop, load its bit-packed control data, and extract that to the stack variables
   get Scratch1 db Scratch1                        # Then read on/off light times plus warning mask and store to stack
-  ext Scratch2 Scratch1 0 16
+  ext Scratch2 Scratch1 0 TIME_BITFIELD_LEN
   poke OffTime Scratch2
-  ext Scratch2 Scratch1 16 16
+  ext Scratch2 Scratch1 TIME_BITFIELD_LEN TIME_BITFIELD_LEN
   poke OnTime Scratch2
-  ext WarnMask Scratch1 31 16                     # Intentionally off by one, since the result of the LSB technically maps to "no warning", so it's not useful or worth storing
-
-  # TODO need to read temp SP and write to AC somehow
+  ext WarnMask Scratch1 Calc(ALARM_BITS_OFFSET-1) 11  # Intentionally off by one, since the result of the LSB technically maps to "no warning", so it's not useful or worth storing
+  srl Scratch1 Scratch1 CROP_TEMP_BIT_IDX         # Get happy temperature of plant
+  add Scratch1 Scratch1 T_ZERO_C
+  sb AirConditioner Setting Scratch1              # AC to crop setpoint
+  poke Calc(AlarmDefsStart+17) Scratch1           # Write crop desired temperature to alarms
+  sub Scratch2 Scratch1 4
+  poke Calc(AlarmDefsStart+53) Scratch2           # Write crop heating setpoint to control rules
+  add Scratch2 Scratch1 4
+  poke Calc(AlarmDefsStart+57) Scratch2           # Write crop cooling setpoint to control rules
 
   move Countdown 0                                # Reset control state to "lights off, instant switch to day, no warnings"
   move LightsOn 0
   move WarnFlags 0
+  move ControlFlags 0
   bne EnabExtended 3 update_common                # Don't update hash data if in Standard mode (tables not initialized)
   add Scratch1 SeedHashTable CropSelect           # Read Seed/Fruit hash tables and store for LArRE
   get Scratch2 db Scratch1
@@ -574,11 +645,11 @@ is_locked:                                        # If the switch is locked we s
   get Scratch2 db Display1
   sb LEDDisplay On Active                         # And toggle displays based on active state
   s Scratch2 On 1                                 # Turn top display on all the time.  Due to how updates are processed, this will make the top display blink when the system is inactive
+  get Scratch4 db Display2                        # Then the RefID of the middle display
   beqz Active equip_ctrl                          # If not active, jump to mode handler
+  get Scratch2 db Display3                        # Load RefID of bottom display
   
 start_warnings:
-  get Scratch4 db Display2                        # Then the RefID of the middle display
-  get Scratch2 db Display3                        # Load RefID of bottom display
   bgtz WarnWait nowarn                            # Next if WarnWait is still ticking down, we don't show any warnings
   bnez WarnFlags haswarning                       # Then if we *have* warnings, show them
   j nowarn                                        # Otherwise we just jump to no-warnings.
@@ -603,8 +674,8 @@ haswarning:                                       # If we have a warning, then a
   add WarnIdx WarnIdx 1                           # Advance to the next warning index
   srl Scratch1 WarnFlags WarnIdx                  # Then, bit-shift out all of the warning flags we've iterated past
   beqz Scratch1 warndone                          # Now check if there are any further warning flags to show - if not (Scratch1 == 0), branch to the end of warnings handler
-  and Scratch2 Scratch1 1                         # check if the current warning index is set
-  beqz Scratch2 haswarning                        # If not, we need to iterate further to find the next set warning flag (while incrementing the index as well)
+  and Scratch1 Scratch1 1                         # check if the current warning index is set
+  beqz Scratch1 haswarning                        # If not, we need to iterate further to find the next set warning flag (while incrementing the index as well)
   
 foundwarning:
   get Scratch3 db WarningTable                    # Display "WARN" text, first by getting the warning teext
