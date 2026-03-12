@@ -92,6 +92,7 @@ main_loop:
 
   move LowInterfaceIngotHash 0
   move LowInterfaceQuantity 999999
+  move LowInterfaceRefId 0
 
 printer_loop:
   ble sp SP_PRINTERS_TABLE end_printer_loop

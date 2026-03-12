@@ -1,11 +1,9 @@
 section definitions
   define  SP_PRINTERID                  0
   define  SP_REAGENTS                   1
-  define  SP_BUTTONS                    2
-  define  SP_PRINTERTYPE                3
 
   define  SP_BUTTONS_TABLE              4
-
+  define  SP_BUTTONS_TABLE_END          9
   define  SP_REAGENTS_TABLE             10
   define  SP_INGOTS_TABLE               30
 
@@ -20,6 +18,11 @@ section definitions
   define  BUTTON_AUTO                   0b00010000
   define  BUTTON_STARTS                 0b11000000 ; Bitflags to enable ONE and RUN buttons (maybe)
   define  BUTTON_ABORT                  0b00100000 ; Bitflags to enable ABORT button
+
+  define  NAME_AUTO                     Hash("AUTO")
+  define  NAME_ABORT                    Hash("ABORT")
+  define  NAME_ONE                      Hash("ONE")
+  define  NAME_RUN                      Hash("RUN")
 
   define  DISPLAYMODE_NUMERIC           0
   define  DISPLAYMODE_PERCENTAGE        1 ; Percentage Display Mode
@@ -39,6 +42,7 @@ section definitions
 
   define  STR_DONE                      Str("FINISH")
   define  STR_FAIL                      Str("ABORT")
+  define  STR_START                     Str("START")
   define  STR_TIME                      0x6D000073 ;"m\x00\x00s"
 
   define  REAGENT_MODULUS_1             183829
@@ -58,6 +62,7 @@ section definitions
   alias   button_lights_last            r10
   alias   printer_command               r9
   alias   print_batch_time              r8
+  alias   print_prog_last               r7
 
   alias   scratch                       r0
   alias   scratch2                      r1
@@ -98,6 +103,15 @@ endmacro
   reagent_map Hash("Hastelloy") Hash("ItemHastelloyIngot")
   reagent_map Hash("Astroloy") Hash("ItemAstroloyIngot")
 
+  poke BTN_AUTO_BIT_IDX NAME_AUTO
+  poke BTN_STOP_BIT_IDX NAME_ABORT
+  poke BTN_ONE_BIT_IDX NAME_ONE
+  poke BTN_RUN_BIT_IDX NAME_RUN
+
+  sbn ButtonDiode NAME_AUTO Color Color.White
+  sbn ButtonDiode NAME_ABORT Color Color.Red
+  sbn ButtonDiode NAME_ONE Color Color.Yellow
+  sbn ButtonDiode NAME_RUN Color Color.Green
 
   sb DigitalFlipFlop On 1
   sb ButtonDiode On 0
@@ -140,18 +154,6 @@ search_loop:
   bdnvl printer_refid CompletionRatio search_loop
 
   lb r0 ButtonDiode PrefabHash Sum
-  move r1 -1
-  move sp SP_BUTTONS_TABLE
-
-button_search_loop:
-  add r1 r1 1
-  get r2 db:0 r1
-  l r3 r2 PrefabHash
-  bne r3 ButtonDiode button_search_loop
-  push r2
-  sub r0 r0 ButtonDiode
-  bnez r0 button_search_loop
-  poke SP_BUTTONS sp
 
   move printer_command PrinterInstruction.ExecuteRecipe
   move button_lights_last -1
@@ -222,20 +224,19 @@ loop:
 
 no_intake:
   s db:0 Mod_PrinterMetaCommand 0                             ; Clear command from manufactory control
-  get scratch db BTN_AUTO_BIT_IDX                             ; Then read in automatic status from indicator light / switch
-  l auto_mode scratch On
+  lbn auto_mode ButtonDiode NAME_AUTO On Sum                  ; Then read in automatic status from indicator light / switch
   s db:0 Mod_AutomaticMode auto_mode                          ; Update automatic mode state to manufactory
   select scratch job_quantity 1 auto_mode                     ; Lock the printer if in auto mode or running a batch
   s printer_refid Lock scratch
   select button_lights job_quantity BUTTON_ABORT BUTTON_STARTS
   select button_lights auto_mode BUTTON_AUTO button_lights    ; Select which lights we should display based on current state
   beq button_lights_last button_lights start_qty_loop         ; If we haven't asked for a button state change, don't force new values
-  get sp db SP_BUTTONS
+  move sp SP_BUTTONS_TABLE_END
 
 button_loop:                                                  ; Iterate through the buttons, pulling control bits from button_lights
   pop scratch2                                                ; and pushing to On logic type
   ext scratch button_lights sp 1                              ; Yes, using SP as both table iterator and bit index.  No, the table is not 0-aligned.
-  s scratch2 On scratch                                       ; We just lose four bits out of a 53-bit word, I think we can afford that
+  sbn ButtonDiode scratch2 On scratch                         ; We just lose four bits out of a 53-bit word, I think we can afford that
   bgt sp SP_BUTTONS_TABLE button_loop
   move button_lights_last button_lights
 
@@ -253,12 +254,13 @@ qty_loop:
 
 end_qty_loop:
   bgt sp SP_REAGENTS_TABLE qty_loop
-
+  beqz scratch4 no_ingot
   mod scratch4 scratch4 REAGENT_MODULUS_1                     ; Report this up to the master, but first look up the ingot hash from the reagent hash
   mod scratch4 scratch4 REAGENT_MODULUS_2                     ; Use this over rmap because rmap requires a d* pin ref
   add scratch4 scratch4 SP_INGOTS_TABLE                       ; Double-modulus technique lets me map 17 reagent hashes into a 19-entry table w/ 17 ingots
   get scratch4 db scratch4                                    ; Single-modulus approach requires a 78-word table instead, so big space savings for one LoC.
 
+no_ingot:
   s db:0 Mod_LowIngotHash scratch4                            ; Write these to network channels for the manufactory controller to read
   s db:0 Mod_LowIngotAmount scratch2                          ; Each workshop module has a dedicated network split by a logic memory.
 
@@ -281,11 +283,15 @@ active_job:                                                   ; Handler for when
   add scratch3 scratch scratch2                               ; Add those together and divide by total job quantity
   div scratch3 scratch3 job_quantity
   sb LEDDisplay2 Setting scratch3                             ; Set that to the progress % display
-  beqz scratch3 no_time_update                                ; If we've made exactly 0% progress, we can't do a time estimation yet.
+
+  sub scratch4 scratch3 print_prog_last
+  move print_prog_last scratch3
+  blez scratch4 no_time_update                                ; If we've made exactly 0% progress, we can't do a time estimation yet.
 
   sub scratch4 1 scratch3                                     ; If we've made progress, we can do a time-remaining estimation.  Start by getting the remaining progress
   div scratch3 scratch3 print_batch_time                      ; Then divide our 'made' progress by how long that took, to get a progress/time rate
   div scratch3 scratch4 scratch3                              ; Then divide the remaining progress by that rate to get estimated # of seconds to finish the print job
+
   blt scratch3 CALC(99*60+59) normal_time                     ; If ETA is over 99m59s, show "long" instead of trying to read out of bounds in stack
   move scratch2 Str(">1h40m")                                 ; Technically inaccurate at exactly 1h40m00s
   j write_time
@@ -308,8 +314,7 @@ write_time:
 
 no_time_update:
   bnez auto_mode no_abort                                     ; Don't allow checking the abort button in auto mode
-  get scratch3 db BTN_STOP_BIT_IDX                            ; Pull the abort button's RefID and check if it's on
-  l scratch3 scratch3 On
+  lbn scratch3 ButtonDiode NAME_ABORT On Sum                  ; Read abort button press
   bnez scratch3 no_abort                                      ; If the light is on, we have NOT pressed the abort button, so don't abort
   clrd printer_refid                                          ; Otherwise, clear command memory and stop the printer
   s printer_refid Activate 0
@@ -350,12 +355,10 @@ no_color_trig:
   bnez auto_mode check_auto_start                             ; Otherwise, depending on auto/manual mode, look for job start trigger
 
 check_manual_start:                                           ; In manual mode, ONE or RUN buttons start with 1 or (keypad) job_quantity
-  get scratch db BTN_ONE_BIT_IDX
-  l job_quantity scratch On
+  lbn job_quantity ButtonDiode NAME_ONE On Sum
   seqz job_quantity job_quantity                              ; So we can load the ONE button directly into job_quantity with a logical not
 
-  get scratch db BTN_RUN_BIT_IDX                              ; Load RUN button and use to select between Keypad QTY (if OFF) or job_quantity from ONE button
-  l scratch scratch On
+  lbn scratch ButtonDiode NAME_RUN On Sum                     ; Load RUN button and use to select between Keypad QTY (if OFF) or job_quantity from ONE button
   lb scratch2 QuantityKeypad Setting Sum
   select job_quantity scratch job_quantity scratch2
   l scratch printer_refid RecipeHash
@@ -374,8 +377,8 @@ start_job:
   ins printer_command scratch 16 32                           ; Hash to correct bitfield
   ins printer_command job_quantity 8 8                        ; Insert quantity field
   put printer_refid 0 printer_command                         ; Dispatch instruction to printer
-
   sb QuantityKeypad Color Color.Yellow                        ; Change display colours to "in progress" code
   sb LEDDisplay3 Color Color.Yellow
+  sb LEDDisplay3 Setting STR_START
   move print_batch_time 0                                     ; Reset the print timer
   j loop                                                      ; And return to main loop
