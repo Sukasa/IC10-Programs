@@ -217,6 +217,8 @@ section definitions
   define TRIG_LO_WATER      0x200000
 
   define TRIG_ALL           0x3ff800
+  define CONDITION_ANY      0x3fffff
+  define ALARM_ANY          0x0007ff
 
   define WarnInverts        Calc(ALARM_HIGH_POL|ALARM_BAD_ATEMP|ALARM_BAD_PRES|ALARM_HIGH_VOL|ALARM_BAD_WTEMP|TRIG_HIGH_O2|TRIG_WARM_AIR|TRIG_HIGH_PRES)
   define ControlMask        Calc(TRIG_ALL|ALARM_HIGH_POL|ALARM_HIGH_VOL)
@@ -327,7 +329,7 @@ endmacro
   trigger 02  0       0.001   RatioPollutant      GasSensor
   trigger 03  0       0.03    RatioCarbonDioxide  GasSensor
   trigger 04  0.016   298     Temperature         GasSensor
-  trigger 05  0.26    75      Pressure            GasSensor
+  trigger 05  0.28    75      Pressure            GasSensor
   trigger 06  0       0.03    RatioNitrogen       GasSensor
   trigger 07  0       0.001   RatioVolatiles      GasSensor
   trigger 08  0       0.015   RatioOxygen         GasSensor
@@ -431,9 +433,6 @@ endmacro
   define  EXCLUSION_HAS_WATER   Calc(ALARM_POWER|ALARM_LOW_WATER)
   define  EXCLUSION_AIR_PRES    Calc(ALARM_POWER|TRIG_HIGH_PRES)
 
-  define  CONDITION_ANY         0xfffff
-  define  ALARM_ANY             0x007ff
-
 macro equip_rule Index PrefabHash NameHash LogicType Condition Exclusion
   define __lutpos Calc(EXCL_BITS_COUNT)
   define __logic  Calc(LogicType<<__lutpos)
@@ -473,7 +472,7 @@ endmacro
   sb WaterPump Setting 10                                   # Pump 10 l/t into greenhouse when there's a call for air fill
   sb GasMixer Setting 50                                    # Init to 50/50 split
   sbn ActiveVent FiltrationName Mode 1                      # Active vent INWARD to pull air (otherwise, we're going to pop the greenhouse)
-  sbn ActiveVent FiltrationName PressureInternal 10100      # Don't pull so much air we drain the greenhouse and then over-correct
+  sbn ActiveVent FiltrationName PressureInternal 30000      # Try to run filtration at high efficiency
 
   sb AccessReader Color Orange                              # Orange LED means extended functions are set up
 
@@ -535,7 +534,7 @@ continue_countdown:                                         # During run we chec
 next_alarm:   
   pop Scratch1                                              # Now for each alarm, first we pull the device PrefabHash.
   pop Scratch2                                              # Then we pull the LogicType to read
-  lb Scratch3 Scratch1 Scratch2 Sum                         # And we get the value via sum batch read
+  lb Scratch3 Scratch1 Scratch2 Average                     # And we get the value via sum batch read
   pop Scratch1                                              # Now we pull the comparison args
   pop Scratch2                                              # If the second (Scratch2) is non-zero, we treat them as args to SAP.  If it IS zero, we treat the first arg as the comparison point for SLE
   sap Scratch4 Scratch3 Scratch1 Scratch2                   # The invert mask (applied later) lets us conditionally switch SAP and SLE for SNA and SGT (they are the logical inverses)
@@ -603,11 +602,12 @@ nowarn:
  
 haswarning:                                                 # If we have a warning, then advance through the warning list after the iterate delay
   bnez WarnTick foundwarning                                # If WarnTick != 0, we're still in the wait period to keep the current warning readable, so don't advance through the list
+next_warning:
   add WarnIdx WarnIdx 1                                     # Advance to the next warning index
   srl Scratch1 WarnFlags WarnIdx                            # Then, bit-shift out all of the warning flags we've iterated past
   beqz Scratch1 warndone                                    # Now check if there are any further warning flags to show - if not (Scratch1 == 0), branch to the end of warnings handler
   and Scratch1 Scratch1 1                                   # check if the current warning index is set
-  beqz Scratch1 haswarning                                  # If not, we need to iterate further to find the next set warning flag (while incrementing the index as well)
+  beqz Scratch1 next_warning                                # If not, we need to iterate further to find the next set warning flag (while incrementing the index as well)
   
 foundwarning:
   move Scratch3 Str("WARN")                                 # Display "WARN" text
