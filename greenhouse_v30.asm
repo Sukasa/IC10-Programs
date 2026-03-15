@@ -168,7 +168,9 @@ section definitions
   define LIGHT_EFFICIENCY   0.8
   define ALARM_BITS_OFFSET  Calc(TIME_BITFIELD_LEN*2)
   define ALARM_BITS_COUNT   11
-  define TRIG_BITS_COUNT    Calc(ALARM_BITS_COUNT+9)
+  define TRIG_BITS_COUNT    Calc(ALARM_BITS_COUNT+11)
+  define COND_BITS_COUNT    Calc(TRIG_BITS_COUNT)
+  define EXCL_BITS_COUNT    20
   define CROP_TEMP_BIT_IDX  Calc(ALARM_BITS_OFFSET+ALARM_BITS_COUNT)
 
   define SECONDS_FACTOR     1
@@ -211,7 +213,10 @@ section definitions
   define TRIG_LO_PRES       0x40000
   define TRIG_LO_O2         0x80000
 
-  define TRIG_ALL           0xff800
+  define TRIG_WATER_QUAL    0x100000
+  define TRIG_LO_WATER      0x200000
+
+  define TRIG_ALL           0x3ff800
 
   define WarnInverts        Calc(ALARM_HIGH_POL|ALARM_BAD_ATEMP|ALARM_BAD_PRES|ALARM_HIGH_VOL|ALARM_BAD_WTEMP|TRIG_HIGH_O2|TRIG_WARM_AIR|TRIG_HIGH_PRES)
   define ControlMask        Calc(TRIG_ALL|ALARM_HIGH_POL|ALARM_HIGH_VOL)
@@ -249,19 +254,19 @@ section provisioning requires definitions
 
   clr db
 
-  move EnabExtended MODE_STANDARD                 # Disable extended functions
-  poke SP_ALARMTABLEINIT Calc(ALARM_BITS_COUNT*ALARM_STRIDE+SP_TRIGGERTABLE)                # Init alarm table start at normal end
+  move EnabExtended MODE_STANDARD                           # Disable extended functions and set end of trigger table to end of normal alarms list
+  poke SP_ALARMTABLEINIT Calc(ALARM_BITS_COUNT*ALARM_STRIDE+SP_TRIGGERTABLE)
   move sp SP_DISPLAY1
   move Scratch1 -1
-  sb AccessReader Color Color.Yellow              # Colour for "initializing"
+  sb AccessReader Color Color.Yellow                        # Colour for "initializing"
   
 search:
   add Scratch1 Scratch1 1
-  get Scratch2 db:0 Scratch1                      # Enumerate network devices, searching for LED displays
-  l Scratch3 Scratch2 PrefabHash		              # Check if the last device we got an ID for is an LED display
-  bne Scratch3 LEDDisplay search                  # This code doesn't check for end-of-IDs, so I don't know what it will do if it can't find three LED Displays
-  push Scratch2                                   # This was a match, so save it to the current display index, and increment index (which is in sp)
-  ble sp SP_DISPLAY3 search                       # Continue search until we find all displays
+  get Scratch2 db:0 Scratch1                                # Enumerate network devices, searching for LED displays
+  l Scratch3 Scratch2 PrefabHash		                        # Check if the last device we got an ID for is an LED display
+  bne Scratch3 LEDDisplay search                            # This code doesn't check for end-of-IDs, so I don't know what it will do if it can't find three LED Displays
+  push Scratch2                                             # This was a match, so save it to the current display index, and increment index (which is in sp)
+  ble sp SP_DISPLAY3 search                                 # Continue search until we find all displays
   
 macro crop_entry Index NameString ConfigTemperature ConfigOnTime ConfigOffTime ConfigAlarmMask
   define __OnTime Calc(ConfigOnTime/LIGHT_EFFICIENCY<<TIME_BITFIELD_LEN)
@@ -273,6 +278,8 @@ macro crop_entry Index NameString ConfigTemperature ConfigOnTime ConfigOffTime C
   poke Calc(Index*4+SP_CROPTABLE+3) Calc(__OnTime|__OffTime|__Temperature|__Mask)
 endmacro
 
+  # Packed crop table, using interleaved data and a lot of bit-packing.  Not that many more LoC to read on the application side
+  # But far fewer LoC to store on the provisioning side(s)
   crop_entry 00 Str("Potato") TEMP_25_C TIME_300s TIME_200s ALARMS_STANDARD
   crop_entry 01 Str("Soy")    TEMP_25_C TIME_600s TIME_300s ALARMS_SOYBEAN
   crop_entry 02 Str("Rice")   TEMP_25_C TIME_600s TIME_300s ALARMS_STANDARD
@@ -300,28 +307,27 @@ endmacro
   crop_entry 24 Str("Swtgrs") TEMP_30_C TIME_600s TIME_300s ALARMS_STANDARD
   crop_entry 25 Str("DUMMY")  TEMP_30_C TIME_300s TIME_200s ALARMS_STANDARD
   crop_entry 26 Str("DUMMY")  TEMP_25_C TIME_300s TIME_200s ALARMS_STANDARD
-  crop_entry 27 Str("DUMMY")  TEMP_25_C TIME_300s TIME_200s ALARMS_STANDARD
-  crop_entry 28 Str("DUMMY")  TEMP_25_C TIME_300s TIME_200s ALARMS_STANDARD
-  crop_entry 29 Str("DUMMY")  TEMP_25_C TIME_300s TIME_200s ALARMS_STANDARD
 
-  poke Calc(SP_WARNTABLE+00) STR("Power")
-  poke Calc(SP_WARNTABLE+01) STR("Wtr Lo")
-  poke Calc(SP_WARNTABLE+02) STR("Tox Hi")
-  poke Calc(SP_WARNTABLE+03) STR("CO2 Lo")
-  poke Calc(SP_WARNTABLE+04) STR("A Temp")
-  poke Calc(SP_WARNTABLE+05) STR("A Pres")
-  poke Calc(SP_WARNTABLE+06) STR("N2 Low")
-  poke Calc(SP_WARNTABLE+07) STR("Vol Hi")
-  poke Calc(SP_WARNTABLE+08) STR("O2 Low")
-  poke Calc(SP_WARNTABLE+09) STR("W Temp")
-  poke Calc(SP_WARNTABLE+10) STR("W Prty")
+  # Store warning label strings
+  poke Calc(SP_WARNTABLE+00) STR("Power")                   # Power alarm - no battery or discharging
+  poke Calc(SP_WARNTABLE+01) STR("W Quan")                  # Water Quantity alarm (low)
+  poke Calc(SP_WARNTABLE+02) STR("Pol Hi")                  # Pollutants present
+  poke Calc(SP_WARNTABLE+03) STR("CO2 Lo")                  # CO2 Low
+  poke Calc(SP_WARNTABLE+04) STR("A Temp")                  # Air Temperature Bad (high or low)
+  poke Calc(SP_WARNTABLE+05) STR("A Pres")                  # Air Pressure Bad (high or low)
+  poke Calc(SP_WARNTABLE+06) STR("N2 Low")                  # Low Nitrogen (for soy)
+  poke Calc(SP_WARNTABLE+07) STR("Vol Hi")                  # Volatiles present
+  poke Calc(SP_WARNTABLE+08) STR("O2 Low")                  # Low Oxygen
+  poke Calc(SP_WARNTABLE+09) STR("W Temp")                  # Water Temperature Bad (high or low)
+  poke Calc(SP_WARNTABLE+10) STR("W Prty")                  # Water Contamination (purity)
 
+  # Alarm triggers for above alarm strings
   trigger 00  0       2       Mode                APC
   trigger 01  0       5       VolumeOfLiquid      LiquidSensor
   trigger 02  0       0.001   RatioPollutant      GasSensor
   trigger 03  0       0.03    RatioCarbonDioxide  GasSensor
   trigger 04  0.016   298     Temperature         GasSensor
-  trigger 05  0.3     75      Pressure            GasSensor
+  trigger 05  0.26    75      Pressure            GasSensor
   trigger 06  0       0.03    RatioNitrogen       GasSensor
   trigger 07  0       0.001   RatioVolatiles      GasSensor
   trigger 08  0       0.015   RatioOxygen         GasSensor
@@ -329,22 +335,22 @@ endmacro
   trigger 10  0       0.995   RatioWater          LiquidSensor
 
 learn_card:
-  move Scratch3 -1                                # Now scan for the inserted card's color
+  move Scratch3 -1                                          # Now scan for the inserted card's color
   
 card_search:
-  add Scratch3 Scratch3 1                         # Loop through all of the known card colours, and see if the inserted card matches one of them
-  sb AccessReader Mode Scratch3                   # When we find a match, store that as the "required" card colour to unlock the controls
+  add Scratch3 Scratch3 1                                   # Loop through all of the known card colours, and see if the inserted card matches one of them
+  sb AccessReader Mode Scratch3                             # When we find a match, store that as the "required" card colour to unlock the controls
   lb Scratch2 AccessReader Setting Sum
-  bgt Scratch3 12 complete_provision              # If we don't find one by the end of the colour reset, re-check in case the card was removed mid search
+  bgt Scratch3 12 complete_provision                        # If we don't find one by the end of the colour reset, re-check in case the card was removed mid search
   beqz Scratch2 card_search                                 
 
 complete_provision:
-  poke SP_CARD_COLOR Scratch3                     # Card found (or no card inserted); save the current colour (or sentinel value) to stack index
-  sb LogicDial Mode CropsMax                      # Set up the logic dial's maximum to be the crop limit
-  sb LEDDisplay Mode Text                         # All LED displays to text mode to start
-  sb LEDDisplay Color Purple                      # All LED displays to purple text
+  poke SP_CARD_COLOR Scratch3                               # Card found (or no card inserted); save the current colour (or sentinel value) to stack index
+  sb LogicDial Mode CropsMax                                # Set up the logic dial's maximum to be the crop limit
+  sb LEDDisplay Mode Text                                   # All LED displays to text mode to start
+  sb LEDDisplay Color Purple                                # All LED displays to purple text
   
-  sb AccessReader Color Scratch3                  # Colour is ?: No Lock, else inserted card
+  sb AccessReader Color Scratch3                            # Colour is blue: No Lock, else inserted card (...including blue)
   bgt Scratch3 12 learn_card
   
 ##########################################################################
@@ -353,8 +359,8 @@ complete_provision:
 
 section extended requires definitions
   
-  move EnabExtended MODE_EXTENDED                 # Enable extended functions (==3)
-  poke SP_ALARMTABLEINIT Calc(TRIG_BITS_COUNT*ALARM_STRIDE+SP_TRIGGERTABLE)  # Init alarm table start at extended end
+  move EnabExtended MODE_EXTENDED                           # Enable extended functions (==3), then store the extended trigger table end address
+  poke SP_ALARMTABLEINIT Calc(TRIG_BITS_COUNT*ALARM_STRIDE+SP_TRIGGERTABLE)
  
   trigger 11  0       0.15    RatioCarbonDioxide  GasSensor
   trigger 12  0       0.55    RatioOxygen         GasSensor
@@ -365,6 +371,8 @@ section extended requires definitions
   trigger 17  0       45      Pressure            GasSensor
   trigger 18  0       80      RatioCarbonDioxide  GasSensor
   trigger 19  0       0.15    RatioOxygen         GasSensor
+  trigger 20  0       4       VolumeOfLiquid      LiquidSensor
+  trigger 21  0       0.998   RatioWater          LiquidSensor
 
 macro extended_entry Index SeedHash FruitHash
   poke Calc(Index*4+SP_CROPTABLE+1) FruitHash
@@ -398,9 +406,6 @@ endmacro
   extended_entry 24 HASH("ItemPlantSwitchGrass") HASH("ItemPlantSwitchGrass")
   extended_entry 25 HASH("DUMMY") HASH("DUMMY")
   extended_entry 26 HASH("DUMMY") HASH("DUMMY")
-  extended_entry 27 HASH("DUMMY") HASH("DUMMY")
-  extended_entry 28 HASH("DUMMY") HASH("DUMMY")
-  extended_entry 29 HASH("DUMMY") HASH("DUMMY")
 
   define  LOGIC_ON    0
   define  LOGIC_MODE  1
@@ -419,6 +424,9 @@ endmacro
   define  CONDITION_NEED_CYCLE  Calc(TRIG_HIGH_PRES|CONDITION_BAD_AQUAL)
   define  CONDITION_NEED_SUPPLY Calc(ALARM_LOW_CO2|TRIG_LOW_CO2|TRIG_LO_PRES|ALARM_LOW_O2)
 
+  define  CONDITION_WATER_QUAL  Calc(TRIG_WATER_QUAL|ALARM_BAD_WQUAL)
+  define  CONDITION_LOW_WATER   Calc(ALARM_LOW_WATER|TRIG_LO_WATER)
+
   define  EXCLUSION_POWER_AIR   Calc(ALARM_POWER|TRIG_LOLO_PRES)
   define  EXCLUSION_HAS_WATER   Calc(ALARM_POWER|ALARM_LOW_WATER)
   define  EXCLUSION_AIR_PRES    Calc(ALARM_POWER|TRIG_HIGH_PRES)
@@ -427,17 +435,18 @@ endmacro
   define  ALARM_ANY             0x007ff
 
 macro equip_rule Index PrefabHash NameHash LogicType Condition Exclusion
-  define __lutpos Calc(TRIG_BITS_COUNT+31)
+  define __lutpos Calc(EXCL_BITS_COUNT)
   define __logic  Calc(LogicType<<__lutpos)
-  define __name   Calc(NameHash<<TRIG_BITS_COUNT)
-  define __prefab Calc(1<<TRIG_BITS_COUNT*PrefabHash)
+  define __nshift Calc(EXCL_BITS_COUNT+2)
+  define __name   Calc(1<<__nshift*NameHash)
+  define __prefab Calc(1<<COND_BITS_COUNT*PrefabHash)
 
   poke Calc(Index*RULE_STRIDE+SP_RULESTABLE)   Calc(__logic|__name|Exclusion)
   poke Calc(Index*RULE_STRIDE+SP_RULESTABLE+1) Calc(__prefab|Condition)
 endmacro
 
   define TemperatureName  Hash("Temperature Control")
-  define FiltrationName   Hash("Filtration")
+  define FiltrationName   Hash("Air Filter")
   define AirSupplyName    Hash("Air Supply")
   define WaterSupplyName  Hash("Water Supply")
   define AlarmName        Hash("System Alarm")
@@ -452,21 +461,21 @@ endmacro
   equip_rule 07 ActiveVent        AirSupplyName   LOGIC_ON   CONDITION_NEED_SUPPLY EXCLUSION_AIR_PRES
   equip_rule 08 VolumePump        AirSupplyName   LOGIC_ON   CONDITION_NEED_SUPPLY EXCLUSION_AIR_PRES
   equip_rule 09 GasMixer          AirSupplyName   LOGIC_ON   CONDITION_NEED_SUPPLY EXCLUSION_AIR_PRES
-  equip_rule 10 WaterPump         WaterSupplyName LOGIC_ON   ALARM_LOW_WATER       ALARM_POWER
+  equip_rule 10 WaterPump         WaterSupplyName LOGIC_ON   CONDITION_LOW_WATER   ALARM_POWER
   equip_rule 11 LiquidHeater      WaterSupplyName LOGIC_ON   CONDITION_COLD_WATER  EXCLUSION_HAS_WATER
   equip_rule 12 FlashingLight     AlarmName       LOGIC_ON   ALARM_ANY             0
-  equip_rule 13 LiquidFiltration  FiltrationName  LOGIC_ON   ALARM_BAD_WQUAL       EXCLUSION_HAS_WATER
+  equip_rule 13 LiquidFiltration  FiltrationName  LOGIC_ON   CONDITION_WATER_QUAL  EXCLUSION_HAS_WATER
 
 
-  sb PressureReg Setting 95                       # Regulator to 95kPa - Configure equipment defaults
-  sb BackPressureReg Setting 93                   # Regulator to 93kPa - Configure equipment defaults
-  sb VolumePump Setting 1                         # Pump 1 l/t into greenhouse when there's a call for air fill
-  sb WaterPump Setting 10                         # Pump 10 l/t into greenhouse when there's a call for air fill
-  sb GasMixer Setting 50                          # Init to 50/50 split
-  sbn ActiveVent FiltrationName Mode 1            # Active vent INWARD to pull air (otherwise, we're going to pop the greenhouse)
-  sbn ActiveVent FiltrationName PressureInternal 10100            # Don't pull so much air we drain the greenhouse and then over-correct
+  sb PressureReg Setting 95                                 # Regulator to 95kPa - Configure equipment defaults
+  sb BackPressureReg Setting 93                             # Regulator to 93kPa - Configure equipment defaults
+  sb VolumePump Setting 1                                   # Pump 1 l/t into greenhouse when there's a call for air fill
+  sb WaterPump Setting 10                                   # Pump 10 l/t into greenhouse when there's a call for air fill
+  sb GasMixer Setting 50                                    # Init to 50/50 split
+  sbn ActiveVent FiltrationName Mode 1                      # Active vent INWARD to pull air (otherwise, we're going to pop the greenhouse)
+  sbn ActiveVent FiltrationName PressureInternal 10100      # Don't pull so much air we drain the greenhouse and then over-correct
 
-  sb AccessReader Color Orange                    # Orange LED means extended functions are set up
+  sb AccessReader Color Orange                              # Orange LED means extended functions are set up
 
   
 ##################################################################################
@@ -475,29 +484,29 @@ endmacro
   
 section application requires definitions
   
-mode_idle:                                        # Idle/Stop mode handler.  Lets the user select what crop to load, and extracts control values from stack to have ready for run mode handler
-  beqz Unlocked lock_dial                         # Only read in the crop select if unlocked
+mode_idle:                                                  # Idle/Stop mode handler.  Lets the user select what crop to load, and extracts control values from stack to have ready for run mode handler
+  beqz Unlocked lock_dial                                   # Only read in the crop select if unlocked
   lb CropSelect LogicDial Setting Sum
   
 lock_dial:
-  sb LogicDial Setting CropSelect                 # Then write our current crop select back to the dial (does nothing if we're unlocked as we'd be writing what it already was.  In locked mode, may do something)
+  sb LogicDial Setting CropSelect                           # Then write our current crop select back to the dial (does nothing if we're unlocked as we'd be writing what it already was.  In locked mode, may do something)
   mul Scratch1 CropSelect CROPTABLE_STRIDE
-  add sp Scratch1 Calc(SP_CROPTABLE+CROPTABLE_STRIDE) # Now take the currently selected crop, load its bit-packed control data, and extract that to the stack variables
-  pop Scratch1                                    # Then read on/off light times plus warning mask and store to stack
+  add sp Scratch1 Calc(SP_CROPTABLE+CROPTABLE_STRIDE)       # Now take the currently selected crop, load its bit-packed control data, and extract that to the stack variables
+  pop Scratch1                                              # Then read on/off light times plus warning mask and store to stack
   ext Scratch2 Scratch1 0 TIME_BITFIELD_LEN
   poke SP_OFFTIME Scratch2
   ext Scratch2 Scratch1 TIME_BITFIELD_LEN TIME_BITFIELD_LEN
   poke SP_ONTIME Scratch2
-  ext WarnMask Scratch1 ALARM_BITS_OFFSET ALARM_BITS_COUNT  # Intentionally off by one, since the result of the LSB technically maps to "no warning", so it's not useful or worth storing
-  srl Scratch1 Scratch1 CROP_TEMP_BIT_IDX         # Get happy temperature of plant
+  ext WarnMask Scratch1 ALARM_BITS_OFFSET ALARM_BITS_COUNT  #
+  srl Scratch1 Scratch1 CROP_TEMP_BIT_IDX                   # Get happy temperature of plant
   add Scratch1 Scratch1 T_TWENTY_C
-  sb AirConditioner Setting Scratch1              # AC to crop setpoint
-  poke Calc(4*ALARM_STRIDE+SP_TRIGGERTABLE+1) Scratch1          # Write crop desired temperature to alarms
+  sb AirConditioner Setting Scratch1                        # AC to crop setpoint
+  poke Calc(4*ALARM_STRIDE+SP_TRIGGERTABLE+1) Scratch1      # Write crop desired temperature to alarms
   sub Scratch2 Scratch1 2
-  poke Calc(14*ALARM_STRIDE+SP_TRIGGERTABLE+1) Scratch2          # Write crop heating setpoint to control rules
+  poke Calc(14*ALARM_STRIDE+SP_TRIGGERTABLE+1) Scratch2     # Write crop heating setpoint to control rules
   add Scratch2 Scratch1 2
-  poke Calc(15*ALARM_STRIDE+SP_TRIGGERTABLE+1) Scratch2          # Write crop cooling setpoint to control rules
-  move Countdown 0                                # Reset control state to "lights off, instant switch to day, no warnings"
+  poke Calc(15*ALARM_STRIDE+SP_TRIGGERTABLE+1) Scratch2     # Write crop cooling setpoint to control rules
+  move Countdown 0                                          # Reset control state to "lights off, instant switch to day, no warnings"
   move LightsOn 0
   move WarnFlags 0
   move ControlFlags 0
@@ -505,132 +514,132 @@ lock_dial:
   poke SeedHash Scratch2
   pop Scratch2
   poke FruitHash Scratch2
-  pop Scratch1                                    # Used all the way down in equip_ctrl to set crop title
-  j update_common                                 # And jump to common update
+  pop Scratch1                                              # Used all the way down in equip_ctrl to set crop title
+  j update_common                                           # And jump to common update
   
-mode_run:                                         # Run mode handler.  Ticks lights, timer, and monitors alarms
-  sb LogicDial Setting r15                        # Keep the logic dial from turning during run
-  sub Countdown Countdown EnabExtended            # If running, first we decrement the current timer
-  bgtz Countdown continue_countdown               # If the countdown is positive, then we haven't reached the end of this day/night cycle step
+mode_run:                                                   # Run mode handler.  Ticks lights, timer, and monitors alarms
+  sb LogicDial Setting r15                                  # Keep the logic dial from turning during run
+  sub Countdown Countdown EnabExtended                      # If running, first we decrement the current timer
+  bgtz Countdown continue_countdown                         # If the countdown is positive, then we haven't reached the end of this day/night cycle step
 
-no_period:                                        # If the countdown HAS elapsed (or if the other step has a zero-tick step time) then we need to toggle the light state and reload the timer
-  seqz LightsOn LightsOn                          # Invert lights-on flag
-  add Scratch1 LightsOn SP_OFFTIME                # Load cycle step time, with table array math
+no_period:                                                  # If the countdown HAS elapsed (or if the other step has a zero-tick step time) then we need to toggle the light state and reload the timer
+  seqz LightsOn LightsOn                                    # Invert lights-on flag
+  add Scratch1 LightsOn SP_OFFTIME                          # Load cycle step time, with table array math
   get Countdown db Scratch1
-  beqz Countdown no_period                        # If we got no time, re-do this to run the same step again WITHOUT updating the grow light (no flicker)
+  beqz Countdown no_period                                  # If we got no time, re-do this to run the same step again WITHOUT updating the grow light (no flicker)
   poke LightStatus LightsOn
   
-continue_countdown:                               # During run we check a number of alarm conditions, and do so by reading out alarm definitions from the stack (saves on LoC)
-  get sp db SP_ALARMTABLEINIT                     # Start by initializing the stack pointer to the end of the alarms array (pop does backwards through the stack)
+continue_countdown:                                         # During run we check a number of alarm conditions, and do so by reading out alarm definitions from the stack (saves on LoC)
+  get sp db SP_ALARMTABLEINIT                               # Start by initializing the stack pointer to the end of the alarms array (pop does backwards through the stack)
 
 next_alarm:   
-  pop Scratch1                                    # Now for each alarm, first we pull the device PrefabHash.
-  pop Scratch2                                    # Then we pull the LogicType to read
-  lb Scratch3 Scratch1 Scratch2 Sum               # And we get the value via sum batch read
-  pop Scratch1                                    # Now we pull the comparison args
-  pop Scratch2                                    # Two of them.  If the second (Scratch2) is non-zero, we treat them as args to an SAP opcode.  If it IS zero, we treat the first arg as the comparison point for an SLE opcode
-  sap Scratch4 Scratch3 Scratch1 Scratch2         # The invert mask (applied later) lets us conditionally switch SAP and SLE for SNA and SGT (they are the logical inverses)
-  sle Scratch3 Scratch3 Scratch1                  # Run both comparisons and then select between them
-  select Scratch1 Scratch2 Scratch4 Scratch3      # Select based on whether Scratch2 is nonzero (i.e. if we want the SAP variant or not)
+  pop Scratch1                                              # Now for each alarm, first we pull the device PrefabHash.
+  pop Scratch2                                              # Then we pull the LogicType to read
+  lb Scratch3 Scratch1 Scratch2 Sum                         # And we get the value via sum batch read
+  pop Scratch1                                              # Now we pull the comparison args
+  pop Scratch2                                              # If the second (Scratch2) is non-zero, we treat them as args to SAP.  If it IS zero, we treat the first arg as the comparison point for SLE
+  sap Scratch4 Scratch3 Scratch1 Scratch2                   # The invert mask (applied later) lets us conditionally switch SAP and SLE for SNA and SGT (they are the logical inverses)
+  sle Scratch3 Scratch3 Scratch1                            # Run both comparisons and then select between them
+  select Scratch1 Scratch2 Scratch4 Scratch3                # Select based on whether Scratch2 is nonzero (i.e. if we want the SAP variant or not)
   sll WarnFlags WarnFlags 1
-  ins WarnFlags Scratch1 0 1                      # We don't have an index reg, so bit-shift it in.
-  bgt sp SP_TRIGGERTABLE next_alarm               # If we're not at the start of the alarms table, we have further to go
+  ins WarnFlags Scratch1 0 1                                # We don't have an index reg, so bit-shift it in.
+  bgt sp SP_TRIGGERTABLE next_alarm                         # If we're not at the start of the alarms table, we have further to go
   
 end_alarms:
-  xor WarnFlags WarnFlags WarnInverts             # Once we finish the alarm list, apply invert mask, for the SAP/SLE -> SNA/SGT logical conversions.  And also rule inverts, for extended mode.
-  and ControlFlags WarnFlags ControlMask          # Extract all the equipment rules from the warnings and store
-  and WarnFlags WarnFlags WarnMask                # Now mask out warnings on a per-crop basis, by pulling the pre-set (from idle mode) mask flags.  Also clears leftover bits from the last scan for free
-  or ControlFlags ControlFlags WarnFlags          # Merge the masked warnings back into the control flags for later
+  xor WarnFlags WarnFlags WarnInverts                       # Once we finish the alarm list, apply invert mask, for the SAP/SLE -> SNA/SGT logical conversions.  And also rule inverts, for extended mode.
+  and ControlFlags WarnFlags ControlMask                    # Extract all the equipment rules from the warnings and store
+  and WarnFlags WarnFlags WarnMask                          # Now mask out warnings on a per-crop basis, by pulling the pre-set (from idle mode) mask flags.  Also clears leftover bits from the last scan for free
+  or ControlFlags ControlFlags WarnFlags                    # Merge the masked warnings back into the control flags for later
 
-update_common:                                    # Update the display with current config data, and do some common work such as alarms, mode select, unlock, stack updates, etc
-  yield                                           # Tick wait here for entire system
-  get Scratch5 db SP_CARD_COLOR                   # Check if we're not using a card (> 12)
-  sgt Scratch5 Scratch5 12                        # Process Locked/Unlocked state, allowing perma-unlock if provisioned with no card
-  lb Unlocked AccessReader Setting Sum            # Check if the stop switch can be checked, by seeing if the card reader has the right card OR if Scratch1 is set (i.e. colour needed == -1)
+update_common:                                              # Update the display with current config data, and do some common work such as alarms, mode select, unlock, stack updates, etc
+  yield                                                     # Tick wait here for entire system
+  get Scratch5 db SP_CARD_COLOR                             # Check if we're not using a card (> 12)
+  sgt Scratch5 Scratch5 12                                  # Process Locked/Unlocked state, allowing perma-unlock if provisioned with no card
+  lb Unlocked AccessReader Setting Sum                      # Check if the stop switch can be checked, by seeing if the card reader has the right card OR if Scratch1 is set (i.e. colour needed == -1)
   or Unlocked Unlocked Scratch5
   poke SP_UNLOCKED Unlocked
-  select Scratch2 Unlocked Green Red              # Change access reader colour based on unlock state
-  sb AccessReader Color Scratch2                  # Access reader color = unlock state
-  lb Scratch2 LogicSwitch Setting Sum             # Set switch colour based on run state + unlock state
-  seq Scratch4 Scratch2 Active                    # Scratch4 := Switch matches state
-  select Scratch3 Active Green Red                # Switch is Green if on + onlocked, red if off + unlocked (or if switch matches state)
-  select Scratch5 Scratch4 Scratch3 Orange        # If unlocked or matches, use unlocked colour.  If locked and mismatch, orange.
+  select Scratch2 Unlocked Green Red                        # Change access reader colour based on unlock state
+  sb AccessReader Color Scratch2                            # Access reader color = unlock state
+  lb Scratch2 LogicSwitch Setting Sum                       # Set switch colour based on run state + unlock state
+  seq Scratch4 Scratch2 Active                              # Scratch4 := Switch matches state
+  select Scratch3 Active Green Red                          # Switch is Green if on + onlocked, red if off + unlocked (or if switch matches state)
+  select Scratch5 Scratch4 Scratch3 Orange                  # If unlocked or matches, use unlocked colour.  If locked and mismatch, orange.
   select Scratch4 Unlocked Scratch3 Scratch5
   sb LogicSwitch Color Scratch4
   select Active Unlocked Scratch2 Active
-  sb GrowLight On LightsOn                        # Update lights with 'lights on' state
-  add WarnTick WarnTick EnabExtended              # Time up the warning iterate tick
-  mod WarnTick WarnTick WarnTimescale             # And modulus it by the iteration timescale
-  sb StatusLight On Active                        # Now update the status light with the current state
-  select Scratch2 WarnFlags Orange Green          # Orange if warning, Green if happy
-  select Scratch2 Active Scratch2 Black           # Black if idle
-  sb StatusLight Color Scratch2                   # Including color
+  sb GrowLight On LightsOn                                  # Update lights with 'lights on' state
+  add WarnTick WarnTick EnabExtended                        # Time up the warning iterate tick
+  mod WarnTick WarnTick WarnTimescale                       # And modulus it by the iteration timescale
+  sb StatusLight On Active                                  # Now update the status light with the current state
+  select Scratch2 WarnFlags Orange Green                    # Orange if warning, Green if happy
+  select Scratch2 Active Scratch2 Black                     # Black if idle
+  sb StatusLight Color Scratch2                             # Including color
   get Scratch2 db SP_DISPLAY1
-  sb LEDDisplay On Active                         # And toggle displays based on active state
-  s Scratch2 On 1                                 # Turn top display on all the time.  Due to how updates are processed, this will make the top display blink when the system is inactive
-  get Scratch4 db SP_DISPLAY2                        # Then the RefID of the middle display
-  beqz Active equip_ctrl                          # If not active, jump to mode handler
-  get Scratch2 db SP_DISPLAY3                        # Load RefID of bottom display
+  sb LEDDisplay On Active                                   # And toggle displays based on active state
+  s Scratch2 On 1                                           # Turn top display on all the time.  Due to how updates are processed, this will make the top display blink when the system is inactive
+  get Scratch4 db SP_DISPLAY2                               # Then the RefID of the middle display
+  beqz Active equip_ctrl                                    # If not active, jump to mode handler
+  get Scratch2 db SP_DISPLAY3                               # Load RefID of bottom display
   
 start_warnings:
-  bgtz WarnWait nowarn                            # Next if WarnWait is still ticking down, we don't show any warnings
-  bnez WarnFlags haswarning                       # Then if we *have* warnings, show them
-  j nowarn                                        # Otherwise we just jump to no-warnings.
+  bgtz WarnWait nowarn                                      # Next if WarnWait is still ticking down, we don't show any warnings
+  bnez WarnFlags haswarning                                 # Then if we *have* warnings, show them
+  j nowarn                                                  # Otherwise we just jump to no-warnings.
   
 warndone:
-  move WarnWait WarnInterval                      # If we finished looping through all the warning flags or have no active warnings, we want to just display the normal screen for a bit
+  move WarnWait WarnInterval                                # If we finished looping through all the warning flags or have no active warnings, we want to just display the normal screen for a bit
   
 nowarn:
-  sub WarnTick 0 EnabExtended                     # There are no warnings (or we completed the iteration), so reset timers and index
+  sub WarnTick 0 EnabExtended                               # There are no warnings (or we completed the iteration), so reset timers and index
   move WarnIdx -1
-  sub WarnWait WarnWait EnabExtended              # Decrement warning wait timer (until we iterate through active warnings again)
+  sub WarnWait WarnWait EnabExtended                        # Decrement warning wait timer (until we iterate through active warnings again)
   select Scratch3 LightsOn Str("Day") Str("Night")
   select Scratch5 LightsOn Yellow White
   s Scratch4 Color Scratch5
-  move Scratch1 Countdown                         # And then update display for time left in day/night cycle step
+  move Scratch1 Countdown                                   # And then update display for time left in day/night cycle step
   s Scratch2 Color Pink
   s Scratch2 Mode Seconds
-  j equip_ctrl                                    # Jump to equipment control handler
+  j equip_ctrl                                              # Jump to equipment control handler
  
-haswarning:                                       # If we have a warning, then advance through the warning list after the iterate delay
-  bnez WarnTick foundwarning                      # If WarnTick != 0, we're still in the wait period to keep the current warning readable, so don't advance through the list
-  add WarnIdx WarnIdx 1                           # Advance to the next warning index
-  srl Scratch1 WarnFlags WarnIdx                  # Then, bit-shift out all of the warning flags we've iterated past
-  beqz Scratch1 warndone                          # Now check if there are any further warning flags to show - if not (Scratch1 == 0), branch to the end of warnings handler
-  and Scratch1 Scratch1 1                         # check if the current warning index is set
-  beqz Scratch1 haswarning                        # If not, we need to iterate further to find the next set warning flag (while incrementing the index as well)
+haswarning:                                                 # If we have a warning, then advance through the warning list after the iterate delay
+  bnez WarnTick foundwarning                                # If WarnTick != 0, we're still in the wait period to keep the current warning readable, so don't advance through the list
+  add WarnIdx WarnIdx 1                                     # Advance to the next warning index
+  srl Scratch1 WarnFlags WarnIdx                            # Then, bit-shift out all of the warning flags we've iterated past
+  beqz Scratch1 warndone                                    # Now check if there are any further warning flags to show - if not (Scratch1 == 0), branch to the end of warnings handler
+  and Scratch1 Scratch1 1                                   # check if the current warning index is set
+  beqz Scratch1 haswarning                                  # If not, we need to iterate further to find the next set warning flag (while incrementing the index as well)
   
 foundwarning:
-  move Scratch3 Str("WARN")                       # Display "WARN" text
+  move Scratch3 Str("WARN")                                 # Display "WARN" text
   s Scratch4 Color Orange
-  add Scratch1 WarnIdx SP_WARNTABLE               # Now get the text correponding to the current displayed warning flag
-  get Scratch1 db Scratch1                        # by doing array index math and loading that stack index to Scratch1
+  add Scratch1 WarnIdx SP_WARNTABLE                         # Now get the text correponding to the current displayed warning flag
+  get Scratch1 db Scratch1                                  # by doing array index math and loading that stack index to Scratch1
   s Scratch2 Mode Text
-  s Scratch2 Color Orange                         # Lastly, fall through to equipment control handler
+  s Scratch2 Color Orange                                   # Lastly, fall through to equipment control handler
   
 equip_ctrl:
   s Scratch2 Setting Scratch1
   s Scratch4 Setting Scratch3
-  bne EnabExtended MODE_EXTENDED next_mode        # Skip control handler if extended functions not enabled
+  bne EnabExtended MODE_EXTENDED next_mode                  # Skip control handler if extended functions not enabled
   sb GlassDoor Open 0
   move sp Calc(RULE_COUNT*RULE_STRIDE+SP_RULESTABLE)
   
 next_rule:
-  pop Scratch1                                    # Pull rule definition from stack and then process
-  ext Scratch2 Scratch1 0 TRIG_BITS_COUNT         # Scratch2 = Conditions
-  sra Scratch1 Scratch1 TRIG_BITS_COUNT           # Scratch1 = PrefabHash
+  pop Scratch1                                              # Pull rule definition from stack and then process
+  ext Scratch2 Scratch1 0 COND_BITS_COUNT                   # Scratch2 = Conditions
+  sra Scratch1 Scratch1 COND_BITS_COUNT                     # Scratch1 = PrefabHash
   pop Scratch3
-  ext Scratch4 Scratch3 TRIG_BITS_COUNT 31        # Scratch4 = NameHash
-  ext Scratch5 Scratch3 Calc(TRIG_BITS_COUNT+31) 2
-  get Scratch5 db Scratch5                        # Scratch5 = LogicType
-  ext Scratch3 Scratch3 0 TRIG_BITS_COUNT         # Scratch3 = Exclusions
-  and Scratch3 Scratch3 ControlFlags              # Rules are a pair of AND masks with the control flags.  Output = Scratch3 && !Scratch4
-  and Scratch2 Scratch2 ControlFlags
+  sra Scratch4 Scratch3 Calc(EXCL_BITS_COUNT+2)             # Scratch4 = NameHash
+  ext Scratch5 Scratch3 EXCL_BITS_COUNT 2
+  get Scratch5 db Scratch5                                  # Scratch5 = LogicType
+  ext Scratch3 Scratch3 0 EXCL_BITS_COUNT                   # Scratch3 = Exclusions
+  and Scratch3 Scratch3 ControlFlags                        # Rules are a pair of AND masks with the control flags.  Output = Scratch3 && !Scratch4
+  and Scratch2 Scratch2 ControlFlags                        # It takes 8 LoC to unpack the rule and 5 to actually execute it..
   snez Scratch2 Scratch2
   select Scratch2 Scratch3 0 Scratch2
-  sbn Scratch1 Scratch4 Scratch5 Scratch2        # Output written to Mode/On/Open (based on rule) for device by prefab (based on rule) and name (based on rule)
-  bgt sp SP_RULESTABLE next_rule                 # If we've got more rules to process, continue loop
+  sbn Scratch1 Scratch4 Scratch5 Scratch2                   # Output written to Mode/On/Open (based on rule) for device by prefab (based on rule) and name (based on rule)
+  bgt sp SP_RULESTABLE next_rule                            # If we've got more rules to process, continue loop
   
 next_mode:
-  bnez Active mode_run                            # Otherwise jump back to the active mode handler
-  j mode_idle                                     # IC10 doesn't loop around to line 0, unfortunately.
+  bnez Active mode_run                                      # Otherwise jump back to the active mode handler
+  j mode_idle                                               # IC10 doesn't loop around to line 0 so jump
