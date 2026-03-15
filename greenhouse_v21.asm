@@ -237,6 +237,7 @@ section provisioning requires definitions
   poke AlarmTableInit AlarmDefsEnd                # Init alarm table start at normal end
   move sp Display1
   move Scratch1 -1
+  sb AccessReader Color Color.Yellow              # Colour for "initializing"
   
 search:
   add Scratch1 Scratch1 1
@@ -300,22 +301,25 @@ init_tables:
   poke Calc(TimesTable+23)  Calc(TEMP_25_C|OFF_TIME_1H|ALARMS_MUSHROOM)                       # 0x03B7 << 32 |   0s << 16 | 3600s Mushroom
   poke Calc(TimesTable+24)  Calc(TEMP_30_C|ON_TIME_600s|OFF_TIME_300s|ALARMS_STANDARD)        # 0x02BF << 32 | 600s << 16 |  300s Switchgrass
 
-  poke Calc(WarningTable+0)  STR("Warn")          # Warnings table, SP = 65
-  poke Calc(WarningTable+1)  STR("Power")         # Warnings table, SP = 66
-  poke Calc(WarningTable+2)  STR("Wtr Lo")
-  poke Calc(WarningTable+3)  STR("Tox Hi")
-  poke Calc(WarningTable+4)  STR("CO2 Lo")
-  poke Calc(WarningTable+5)  STR("A Temp")
-  poke Calc(WarningTable+6)  STR("A Pres")
-  poke Calc(WarningTable+7)  STR("N2 Low")
-  poke Calc(WarningTable+8)  STR("Vol Hi")
-  poke Calc(WarningTable+9)  STR("O2 Low")
+  poke Calc(WarningTable+00)  STR("Warn")
+  poke Calc(WarningTable+01)  STR("Power")
+  poke Calc(WarningTable+02)  STR("Wtr Lo")
+  poke Calc(WarningTable+03)  STR("Tox Hi")
+  poke Calc(WarningTable+04)  STR("CO2 Lo")
+  poke Calc(WarningTable+05)  STR("A Temp")
+  poke Calc(WarningTable+06)  STR("A Pres")
+  poke Calc(WarningTable+07)  STR("N2 Low")
+  poke Calc(WarningTable+08)  STR("Vol Hi")
+  poke Calc(WarningTable+09)  STR("O2 Low")
   poke Calc(WarningTable+10) STR("W Temp")
+  #poke Calc(WarningTable+11) STR("W Qual") # TODO if I can make room for more alarms
   
-  poke Calc(DayTable+0)      STR("Night")         # Day/Night labels, SP = 76
+  poke Calc(DayTable+0)      STR("Night")
   poke Calc(DayTable+1)      STR("Day")
 
-  #poke Calc(AlarmDefsStart+0) 0                   # 0 == SLE, SP = 78
+
+
+  #poke Calc(AlarmDefsStart+0) 0                   # 0 == SLE
   poke Calc(AlarmDefsStart+1) 2                   # Alarm if Mode <= 2
   poke Calc(AlarmDefsStart+2) Mode                # LogicType.Mode
   poke Calc(AlarmDefsStart+3) APC                 # APC (via Logic Mirror)
@@ -373,11 +377,9 @@ complete_provision:
   sb LEDDisplay Mode Text                         # All LED displays to text mode to start
   sb LEDDisplay Color Purple                      # All LED displays to purple text
   
-provision_wait_loop:
-  sb AccessReader Color Scratch3                  # Colour is .... Blue: No Lock, Gray: Card Lock
-  lbs Scratch4 AccessReader 0 Occupied Sum        # Check if a card is inserted
-  bnez Scratch4 learn_card                        # If we insert a card late, still let it be learned
-  j provision_wait_loop                           # (Leaving a card inserted just wastes cycles, but doesn't break anything)
+  sne Scratch4 Scratch3 12
+  sb AccessReader Color Scratch4                  # Colour is Blue: No Lock, Gray: Card Lock
+  beqz Scratch4 learn_card
   
 ##########################################################################
 #  Extended Provisioning Code - optional data for expanded functions
@@ -509,7 +511,7 @@ section extended requires definitions
   poke Calc(RuleTableStart+9) 0b01000000000000000100001100000000100000   # Run if air temp > 30C or <= 20C or "bad" while not low power or low air pressure
   poke Calc(RuleTableStart+10) Mode                                       # LogicType.Mode
   poke Calc(RuleTableStart+11) AirConditioner
-  poke Calc(RuleTableStart+12) 0b01000000000000000100011001100111011000   # Active vent on if air pressure high or o2 level high or air alarm while not low power or low air pressure
+  poke Calc(RuleTableStart+12) 0b01000000000000000100001001101111011000   # Active vent on if air pressure high or o2 level high or air alarm while not low power or low air pressure
   poke Calc(RuleTableStart+13) On                                         # LogicType.On
   poke Calc(RuleTableStart+14) ActiveVent
   poke Calc(RuleTableStart+15) 0b00000000000000000100000010000000000000   # Liquid heater on if water temp <= 20C while not low power
