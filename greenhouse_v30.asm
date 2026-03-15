@@ -1,9 +1,9 @@
 #########################################################################################################################################################
 #                                                                                                                                                       #
-# Stationeers Greenhouse rack control                                                                                                                   #
+# Stationeers Greenhouse rack control v3.0                                                                                                              #
 # Sectioned into "provision", "extended" and "application" programs, with a common definitions section                                                  #
 # The former runs in-situ to set up the stack, the latter runs normally using the same IC10 afterwards (stack is non-volatile)                          #
-# "extended" program enables Extended Mode by selectively updating some stack and register data                                                         #
+# "Extended" program enables Extended Mode by selectively updating some stack and register data                                                         #
 # Standard mode completes a full scan every second, Extended mode runs at 0.667Hz.                                                                      #
 # This file is intended to be pre-processed by my IC10 Inliner program in order to produce the Vanilla-friendly assembly files                          #
 # Get that program at https://github.com/Sukasa/IC10-Inliner                                                                                            #
@@ -16,29 +16,32 @@
 #   - Automatically toggles grow lighting based on crop selection                                                                                       #
 #   - Monitors 11 different alarms, including Air/Water Temp; Air, CO2, O2, N2, Volatiles, and Pollutant levels, Power state, and water quality         #
 #   - Alarm monitoring takes into account selected crop type                                                                                            #
-#   - Fully self-configuring with no device screw or code adjustments required*                                                                         #
+#   - Fully self-configuring with no device screw or code adjustments required.  Only setting names on equipment                                        #
 #                                                                                                                                                       #
 #   When configured in Extended Mode:                                                                                                                   #
 #   - Provides Seed/Fruit item hash values for LArRE control via second IC (code to be provided in future)                                              #
-#   - Controls Wall Heater, Wall Cooler, Liquid Wall Cooler, and Air Conditioner to maintain greenhouse temperature                                     #
+#   - Controls Wall Heater, Wall Cooler, Liquid Wall Cooler, and Air Conditioners named "Temperature Control" to maintain greenhouse temperature        #
 #       - Atmospherics systems will be disabled in the event of low air pressure (poor efficiency) or low external power (APC discharging)              #
 #   - Controls Active Vent, Volume Pump, and Gas Mixer to maintain pressure and cycle air contents                                                      #
-#       - Active Vent will operate to reduce pressure, or pull stale air out to be replaced by fresher air.                                             #
-#       - Active Vent will not operate if the air pressure runs low                                                                                     #
-#       - Volume Pump and Gas Mixer enable when the greenhouse needs additional air fed in to maintain pressure                                         #
-#   - Controls Liquid Pipe Heater to maintain water temperature                                                                                         #
+#       - Active Vent or Volume Pump named "Filtration" will operate to reduce pressure, or pull stale air out to be replaced by fresher air.           #
+#       - Filtration unit named "Filtration" will change modes to manage air filtration in concert with the above                                       #
+#       - Active Vent, Volume Pump, or Gas Mier named "Air Supply" will operate to feed fresh air into the grow chamber                                 #
+#       - Active Vents will not operate if the air pressure runs low or if running on battery power                                                     #
+#   - Controls Liquid Pipe Heater and Liquid Volume Pump named "Water Supply" to maintain water temperature and quantity                                #
 #       - Heater will be disabled in the event of low external power (APC discharging)                                                                  #
+#   - Flashing Light named "System Alarm" will turn on if a warning is present                                                                          #
 #   - Automatically closes all Glass Doors on network to seal greenhouse                                                                                #
+#   - Activates Liquid Filtration unit named "Filtration" if the water loses quality due to contamination of any kind (untested)                        #
+#   - Sets up Pressure Regulator and Back Pressure Regulator for passive continous pressure control and air cycling                                     #
 #                                                                                                                                                       #
 # Setup: This program assumes you have Modular Consoles available.                                                                                      #
 #        If you do not, changes the hashes referenced in the 'UI Devices' table below to be vanilla compatible                                          #
-#        NOTE: There is no vanilla equivalent of the access card reader, and the controls locking will not be available                                 #
+#        NOTE: There is no vanilla equivalent to the access card reader, and the controls locking will not be available                                 #
 #        When building the controls, build the LED displays in order from BOTTOM TO TOP.  Otherwise, texts will appear in the wrong order               #
 #        Use a Logic Mirror to bring the APC's data port onto the greenhouse network.                                                                   #
 #                                                                                                                                                       #
 #        Load the "Provisioning" code into an active IC10, and wait for the access reader light to change to CARD COLOR, or BLUE if no card.            #
-#        If you are running in pure vanilla, you will have to just wait for 10 seconds or so to be sure.                                                #
-#        Then (optionally) load the "extended" code and wait for the access reader light to change to PURPLE, to enable Extended Mode.                  #
+#        Then (optionally) load the "extended" code and wait for the access reader light to change to ORANGE, to enable Extended Mode.                  #
 #        Lastly, load the Application code and use your greenhouse!                                                                                     #
 #                                                                                                                                                       #
 # Future updates will include LArRE control via a second IC10 chip                                                                                      #
@@ -120,6 +123,7 @@ section definitions
   define Filtration         Hash("StructureFiltration")
   define WaterPump          Hash("StructureLiquidVolumePump")
   define FlashingLight      Hash("StructureFlashingLight")
+  define LiquidFiltration   Hash("StructureLiqudFiltration")
   
   ### Various constants used to shrink output program size ####
   
@@ -158,7 +162,7 @@ section definitions
   define WarnTimescale      2                     # How many seconds to display each individual warning for
 
   define RULE_STRIDE        2
-  define RULE_COUNT         13
+  define RULE_COUNT         14
 
   define TIME_BITFIELD_LEN  13
   define LIGHT_EFFICIENCY   0.8
@@ -294,6 +298,11 @@ endmacro
   crop_entry 22 Str("Grass")  TEMP_20_C TIME_600s TIME_300s ALARMS_STANDARD
   crop_entry 23 Str("Mushrm") TEMP_25_C TIME_NONE TIME_1H   ALARMS_MUSHROOM
   crop_entry 24 Str("Swtgrs") TEMP_30_C TIME_600s TIME_300s ALARMS_STANDARD
+  crop_entry 25 Str("DUMMY")  TEMP_30_C TIME_300s TIME_200s ALARMS_STANDARD
+  crop_entry 26 Str("DUMMY")  TEMP_25_C TIME_300s TIME_200s ALARMS_STANDARD
+  crop_entry 27 Str("DUMMY")  TEMP_25_C TIME_300s TIME_200s ALARMS_STANDARD
+  crop_entry 28 Str("DUMMY")  TEMP_25_C TIME_300s TIME_200s ALARMS_STANDARD
+  crop_entry 29 Str("DUMMY")  TEMP_25_C TIME_300s TIME_200s ALARMS_STANDARD
 
   poke Calc(SP_WARNTABLE+00) STR("Power")
   poke Calc(SP_WARNTABLE+01) STR("Wtr Lo")
@@ -387,6 +396,11 @@ endmacro
   extended_entry 22 HASH("ItemGrass") HASH("ItemGrass")
   extended_entry 23 HASH("SeedBag_Mushroom") HASH("ItemMushroom")
   extended_entry 24 HASH("ItemPlantSwitchGrass") HASH("ItemPlantSwitchGrass")
+  extended_entry 25 HASH("DUMMY") HASH("DUMMY")
+  extended_entry 26 HASH("DUMMY") HASH("DUMMY")
+  extended_entry 27 HASH("DUMMY") HASH("DUMMY")
+  extended_entry 28 HASH("DUMMY") HASH("DUMMY")
+  extended_entry 29 HASH("DUMMY") HASH("DUMMY")
 
   define  LOGIC_ON    0
   define  LOGIC_MODE  1
@@ -428,19 +442,20 @@ endmacro
   define WaterSupplyName  Hash("Water Supply")
   define AlarmName        Hash("System Alarm")
 
-  equip_rule 00 WallHeater      TemperatureName LOGIC_ON   CONDITION_COLD_AIR    EXCLUSION_POWER_AIR
-  equip_rule 01 WallCooler      TemperatureName LOGIC_ON   CONDITION_WARM_AIR    EXCLUSION_POWER_AIR
-  equip_rule 02 WallCooler2     TemperatureName LOGIC_ON   CONDITION_WARM_AIR    EXCLUSION_POWER_AIR
-  equip_rule 03 AirCon          TemperatureName LOGIC_MODE CONDITION_BAD_ATEMP   EXCLUSION_POWER_AIR
-  equip_rule 04 ActiveVent      FiltrationName  LOGIC_ON   CONDITION_NEED_CYCLE  EXCLUSION_POWER_AIR
-  equip_rule 05 Filtration      FiltrationName  LOGIC_MODE CONDITION_NEED_CYCLE  EXCLUSION_POWER_AIR
-  equip_rule 06 VolumePump      FiltrationName  LOGIC_ON   CONDITION_NEED_CYCLE  EXCLUSION_POWER_AIR
-  equip_rule 07 ActiveVent      AirSupplyName   LOGIC_ON   CONDITION_NEED_SUPPLY EXCLUSION_AIR_PRES
-  equip_rule 08 VolumePump      AirSupplyName   LOGIC_ON   CONDITION_NEED_SUPPLY EXCLUSION_AIR_PRES
-  equip_rule 09 GasMixer        AirSupplyName   LOGIC_ON   CONDITION_NEED_SUPPLY EXCLUSION_AIR_PRES
-  equip_rule 10 WaterPump       WaterSupplyName LOGIC_ON   ALARM_LOW_WATER       ALARM_POWER
-  equip_rule 11 LiquidHeater    WaterSupplyName LOGIC_ON   CONDITION_COLD_WATER  EXCLUSION_HAS_WATER
-  equip_rule 12 FlashingLight   AlarmName       LOGIC_ON   ALARM_ANY             0
+  equip_rule 00 WallHeater        TemperatureName LOGIC_ON   CONDITION_COLD_AIR    EXCLUSION_POWER_AIR
+  equip_rule 01 WallCooler        TemperatureName LOGIC_ON   CONDITION_WARM_AIR    EXCLUSION_POWER_AIR
+  equip_rule 02 WallCooler2       TemperatureName LOGIC_ON   CONDITION_WARM_AIR    EXCLUSION_POWER_AIR
+  equip_rule 03 AirCon            TemperatureName LOGIC_MODE CONDITION_BAD_ATEMP   EXCLUSION_POWER_AIR
+  equip_rule 04 ActiveVent        FiltrationName  LOGIC_ON   CONDITION_NEED_CYCLE  EXCLUSION_POWER_AIR
+  equip_rule 05 Filtration        FiltrationName  LOGIC_MODE CONDITION_NEED_CYCLE  EXCLUSION_POWER_AIR
+  equip_rule 06 VolumePump        FiltrationName  LOGIC_ON   CONDITION_NEED_CYCLE  EXCLUSION_POWER_AIR
+  equip_rule 07 ActiveVent        AirSupplyName   LOGIC_ON   CONDITION_NEED_SUPPLY EXCLUSION_AIR_PRES
+  equip_rule 08 VolumePump        AirSupplyName   LOGIC_ON   CONDITION_NEED_SUPPLY EXCLUSION_AIR_PRES
+  equip_rule 09 GasMixer          AirSupplyName   LOGIC_ON   CONDITION_NEED_SUPPLY EXCLUSION_AIR_PRES
+  equip_rule 10 WaterPump         WaterSupplyName LOGIC_ON   ALARM_LOW_WATER       ALARM_POWER
+  equip_rule 11 LiquidHeater      WaterSupplyName LOGIC_ON   CONDITION_COLD_WATER  EXCLUSION_HAS_WATER
+  equip_rule 12 FlashingLight     AlarmName       LOGIC_ON   ALARM_ANY             0
+  equip_rule 13 LiquidFiltration  FiltrationName  LOGIC_ON   ALARM_BAD_WQUAL       EXCLUSION_HAS_WATER
 
 
   sb PressureReg Setting 95                       # Regulator to 95kPa - Configure equipment defaults
