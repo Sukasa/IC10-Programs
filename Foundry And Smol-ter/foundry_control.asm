@@ -1,91 +1,109 @@
+; Foundry Controller
+; Takes input for "requested" ingot from Manufactory, checks if this ingot is in stock and vends.  Otherwise, checks if ingot is craftable
+; If craftable, and smol-ter is idle, initiates a cycle on the smol-ter.
+
+
 section definitions
-
-  define  OreVender         $?                      # Ore/Ice stacker + vending machine
-  define  IngotVender       $?                      # Ingot vending machine
-  define  ArcFurnace        $?                      # Arc Furnace for converting ingots
-  define  Centrifuge        $?                      # Centrifuge for degassing coal
-  define  AlloyFurnace      $?                      # Advanced Furnace, for alloying
-  define  IceDiverter       $?                      # Digital flip/flop to divert ice to crusher
-  define  CoalDiverter      $?                      # Digital flip/flop to divert coal to degassing
-  define  AlloyDiverter     $?                      # Digital flip/flop to divert ingots to alloying
   
-  
-  define  OreBucketSize     41                      # Size of bucketing range (modulus amount) for ores/ices
-  define  IngotBucketSize   20                      # Size of bucketing range (moulus amount) for degassed ingots / coal
-  
-  define  LogicMemory                   Hash("StructureLogicMemory")
-  define  FoundryConnector              Hash("Foundry Data Link")
+  define  LogicMemory         Hash("StructureLogicMemory")
+  define  VendingMachine      Hash("StructureVendingMachine")
+  define  FoundryConnector    Hash("Foundry Data Link")
+  define  SmolterConnector    Hash("Smol-Ter Interface")
 
-section intake requires definitions
+  define  INGOT_MODULUS_1     199424
+  define  INGOT_MODULUS_2     21
 
-  define  IngotBucketStart  0                       # "Buckets" for storing quantities of ingots
-  define  OreBucketStart    20                      # "Buckets" for storing quantities of ore
+  define  SP_INGOT_TABLE      0
+  define  SP_STOCK_TABLE      20                      # "Buckets" for storing ingot count
+  define  SP_STOCK_TABLE_END  Calc(SP_STOCK_TABLE + INGOT_MODULUS_2)                  # End of the table
 
-  alias   slotIdx           r0
-  alias   itemInfo          r1
-  alias   bucketIdx         r2
-  alias   stackPtr          r3
-  alias   lastOreCount      r4                      # Last ore vender import/export count
-  alias   lastIngotCount    r5                      # Last ingot vendor import/export count
-  
-  alias   ImportCountOres   r9
-  alias   ImportCountIngots r10
-  alias   canVendOres       r11
-  alias   canVendIngots     r12
-  alias   canVendFlags      r13                     # Flags for if an item can be vended (cleared on vend, set on target not empty)
-  alias   Scratch2          r14
-  alias   Scratch1          r15
+  alias   Scratch                       r0
+  alias   Scratch2                      r1
+  alias   Scratch3                      r2
 
-  define  FLAG_IDX_COAL    0
-  define  FLAG_IDX_ICE     1
-  define  FLAG_IDX_ORE     2
+section foundry_controller requires definitions
 
-  # Intake controller.  Receives everything from the unloader, shuttles ices to the crusher (when it's empty), and sends off ores for degassing if there's room in the destination vending machine
-main:
-  jal func_scan_ores
+  poke Calc(SP_INGOT_TABLE) Hash("ItemWaspaloyIngot")
+  poke Calc(SP_INGOT_TABLE+1) Hash("ItemHastelloyIngot")
+  poke Calc(SP_INGOT_TABLE+2) Hash("ItemInconelIngot")
+  poke Calc(SP_INGOT_TABLE+3) Hash("ItemAstroloyIngot")
+  poke Calc(SP_INGOT_TABLE+4) Hash("ItemStelliteIngot")
+  poke Calc(SP_INGOT_TABLE+5) Hash("ItemInvarIngot")
+  poke Calc(SP_INGOT_TABLE+6) Hash("ItemLeadIngot")
+  poke Calc(SP_INGOT_TABLE+7) Hash("ItemNickelIngot")
+  poke Calc(SP_INGOT_TABLE+8) Hash("ItemSilverIngot")
+  poke Calc(SP_INGOT_TABLE+9) Hash("ItemConstantanIngot")
+  poke Calc(SP_INGOT_TABLE+10) Hash("ItemElectrumIngot")
+  poke Calc(SP_INGOT_TABLE+11) Hash("ItemSolderIngot")
+  poke Calc(SP_INGOT_TABLE+12) Hash("ItemSiliconIngot")
+  poke Calc(SP_INGOT_TABLE+13) Hash("ItemGoldIngot")
+  poke Calc(SP_INGOT_TABLE+14) Hash("ItemSteelIngot")
+  poke Calc(SP_INGOT_TABLE+15) Hash("ItemCopperIngot")
+  poke Calc(SP_INGOT_TABLE+16) Hash("ItemIronIngot")
+  poke Calc(SP_INGOT_TABLE+17) Hash("ItemCoalOre")
+  poke Calc(SP_INGOT_TABLE+18) Hash("ItemCobaltOre")
+
+loop: ; Main application loop
+
+  ; Now check stock levels in the vending machine
+  move sp SP_STOCK_TABLE
+
+clear_loop:
+  push 0
+  blt sp SP_STOCK_TABLE_END clear_loop
+
+  move Scratch 102
+
+stock_sum_loop:
+  sub Scratch Scratch 1
+  lbs Scratch2 VendingMachine Scratch PrefabHash Sum
+  breqz Scratch2 _skip_sum_loop
+  mod Scratch2 Scratch2 INGOT_MODULUS_1
+  mod Scratch2 Scratch2 INGOT_MODULUS_2
+  add Scratch2 Scratch2 SP_STOCK_TABLE
+  get Scratch3 db Scratch2
+  add Scratch3 Scratch3 1
+  poke Scratch2 Scratch3
+_skip_sum_loop:
+  bgt Scratch 2 stock_sum_loop
+
+  ; Showing stock levels is handled by another IC, so move on to checking if we need to provide an ingot
+
+  lbn Scratch LogicMemory FoundryConnector Setting Sum
+  beqz Scratch no_request
+
+  ; Set Scratch2 = quantity available of requested ingot
+  mod Scratch2 Scratch INGOT_MODULUS_1
+  mod Scratch2 Scratch2 INGOT_MODULUS_2
+  add Scratch2 Scratch2 SP_STOCK_TABLE
+  get Scratch2 db Scratch2
+
+
+
+
+
+  no_request:
 
   yield
-  j main
-  
-  
-func_scan_ores:
-  move canVendOres 0                              # Clear "can vend" bit array
-  move slotIdx 1                                  # Indexes 0/1 are the import/export slots.  We start from index 2 and run through index 101
-scan_loop:
-  add slotIdx slotIdx 1
-  bgt slotIdx 101 ra
-  ls itemInfo OreVender slotIdx PrefabHash
-  beqz itemInfo scan_loop
-  mod bucketIdx itemInfo OreBucketSize
-  add stackPtr bucketIdx OreBucketStart
-  ls itemInfo OreVender slotIdx Quantity
-  get Scratch1 db stackPtr
-  add Scratch1 Scratch1 itemInfo
-  poke stackPtr Scratch1
-  sge Scratch1 Scratch1 500
-  ins canVendOres bucketIdx 1 Scratch1
-  j scan_loop
+  j loop
 
-func_scan_ingots:
-  move canVendIngots 0                            # Clear "can vend" bit array
-  move slotIdx 1                                  # Indexes 0/1 are the import/export slots.  We start from index 2 and run through index 101
-ingot_loop:
-  add slotIdx slotIdx 1
-  bgt slotIdx 101 ra
-  ls itemInfo IngotVender slotIdx PrefabHash
-  beqz itemInfo ingot_loop
-  mod bucketIdx itemInfo IngotBucketSize
-  ls itemInfo IngotVender slotIdx Quantity
-  get Scratch1 db bucketIdx
-  add Scratch1 Scratch1 itemInfo
-  poke bucketIdx Scratch1
-  sge Scratch1 Scratch1 500
-  ins canVendIngots bucketIdx 1 Scratch1
-  j ingot_loop
+section stock_indicators requires definitions
 
-func_send_ice:                                    # Check if we can send any ice (we have >500 of any stack).  If we can, and the bit is set, and the slot is empty, vend
-  ls Scratch1 Crusher 0 Occupied
-  ext Scratch2 canVendFlags 1 1
 
-func_send_ore:
-  
+
+stock_loop:
+  move Scratch -1
+  lb Scratch2 LEDDisplay3 PrefabHash Sum
+
+_prefab_search_loop:
+  add Scratch Scratch 1
+  get devRefId db:0 Scratch
+  l Scratch3 devRefId PrefabHash
+  bne Scratch3 findPrefab _prefab_search_loop
+
+
+
+
+  sub Scratch2 Scratch2 findPrefab
+  bnez Scratch2 _prefab_search_loop
+  j stock_loop

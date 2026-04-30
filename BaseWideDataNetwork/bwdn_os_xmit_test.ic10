@@ -1,0 +1,22 @@
+define BWDN_OS_MODE 1
+define BWDN_EventClass 2
+
+include bwdn_netchannels_synchronized.ic10
+
+alias Counter   r8
+alias TxPacket  r13
+
+init_sub:
+  move Counter 0
+  j ra
+
+get_tx_packet_sub:
+  add Counter Counter 1
+  mod Counter Counter 64
+  and TxPacket Counter 1
+  bnez TxPacket no_tx
+  srl TxPacket Counter 1
+  j ra ; jump to ra if you want to send a packet (stored in r12), or "j no_tx" if not sending a packet
+
+rx_packet_sub:
+  j ra

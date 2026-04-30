@@ -1,0 +1,16 @@
+move sp 0
+move r14 0
+move r13 0
+loop:
+add ra LogicType.Channel0 r14
+l ra db:1 ra
+sne r15 ra rr14
+add r13 r13 r15
+beqz r15 nopush
+push ra
+nopush:
+move rr14 ra
+add r14 r14 1
+blt r14 8 loop
+yield
+j 0

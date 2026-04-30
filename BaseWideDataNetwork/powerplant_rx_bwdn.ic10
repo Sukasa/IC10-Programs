@@ -1,0 +1,46 @@
+  include bdwn_table.ic10
+
+  define BWDN_OS_MODE 1
+  define BWDN_EventClass Calc(BWDN_PowerPlant)
+
+  include bwdn_netchannels_synchronized.ic10
+
+  define  DiodeSlide      Hash("ModularDeviceSliderDiode1")
+  define  LEDDisplay2     Hash("ModularDeviceLEDdisplay2")
+
+  alias   rxPacket      r0
+  alias   devNameHash   r1
+  alias   devValue      r2
+  alias   isRatio       r3
+  alias   multiplier    r4
+  alias   devPrefabHash r5
+
+init_sub:
+  poke 100 Color.Red
+  poke 101 Color.Orange
+  poke 102 Color.Yellow
+  poke 104 Color.Green
+  poke 105 Color.Blue
+
+  j ra
+
+get_tx_packet_sub:
+  j no_tx ; jump to ra if you want to send a packet (stored in r12), or "j no_tx" if not sending a packet
+
+rx_packet_sub:
+  pop rxPacket
+  ext devValue rxPacket 0 16
+  ext devNameHash rxPacket 16 32
+  sub devNameHash devNameHash 0x80000000
+  sle isRatio devValue 1000
+  select multiplier isRatio 1000 1
+  div devValue devValue multiplier
+  select devPrefabHash isRatio DiodeSlide LEDDisplay2
+  sbn devPrefabHash devNameHash Setting devValue
+  beqz isRatio ra
+  mul devValue devValue 5.01
+  floor devValue devValue
+  add devValue devValue 100
+  get devValue db devValue
+  sbn devPrefabHash devNameHash Color devValue
+  j ra

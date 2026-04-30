@@ -125,6 +125,9 @@ section definitions
   define FlashingLight      HASH("StructureFlashingLight")
   define LiquidFiltration   HASH("StructureLiqudFiltration")
   
+  define SwitchName         HASH("Greenhouse Enable")
+  define DisplayName        HASH("Greenhouse")
+
   ### Various constants used to shrink output program size ####
   
   define Blue               0                     # Colours
@@ -162,7 +165,7 @@ section definitions
   define WarnTimescale      2                     # How many seconds to display each individual warning for
 
   define RULE_STRIDE        2
-  define RULE_COUNT         14
+  define RULE_COUNT         15
 
   define TIME_BITFIELD_LEN  13
   define LIGHT_EFFICIENCY   0.8
@@ -353,8 +356,8 @@ card_search:
 complete_provision:
   poke SP_CARD_COLOR Scratch3                               # Card found (or no card inserted); save the current colour (or sentinel value) to stack index
   sb LogicDial Mode CropsMax                                # Set up the logic dial's maximum to be the crop limit
-  sb LEDDisplay Mode Text                                   # All LED displays to text mode to start
-  sb LEDDisplay Color Purple                                # All LED displays to purple text
+  sbn LEDDisplay DisplayName Mode Text                      # All LED displays to text mode to start
+  sbn LEDDisplay DisplayName Color Purple                   # All LED displays to purple text
   
   sb AccessReader Color Scratch3                            # Colour is blue: No Lock, else inserted card (...including blue)
   bgt Scratch3 12 learn_card
@@ -365,7 +368,7 @@ complete_provision:
 
 section extended requires definitions
   
-  move EnabExtended MODE_EXTENDED                           # Enable extended functions (==3), then store the extended trigger table end address
+  move EnabExtended MODE_EXTENDED                           # Enable extended functions, then store the extended trigger table end address
   poke SP_ALARMTABLEINIT Calc(TRIG_BITS_COUNT*ALARM_STRIDE+SP_TRIGGERTABLE)
  
   trigger 13  0       295.15  Temperature         LiquidSensor
@@ -376,7 +379,7 @@ section extended requires definitions
   trigger 18  0       80      RatioCarbonDioxide  GasSensor
   trigger 19  0       0.15    RatioOxygen         GasSensor
   trigger 20  0       4       VolumeOfLiquid      LiquidSensor
-  trigger 21  0       0.993    RatioWater          LiquidSensor
+  trigger 21  0       0.993   RatioWater          LiquidSensor
 
 macro extended_entry Index SeedHash FruitHash
   poke Calc(Index*4+SP_CROPTABLE+1) FruitHash
@@ -466,16 +469,20 @@ endmacro
   equip_rule 11 LiquidHeater      WaterSupplyName LOGIC_ON   CONDITION_COLD_WATER  EXCLUSION_HAS_WATER
   equip_rule 12 FlashingLight     AlarmName       LOGIC_ON   ALARM_ANY             0
   equip_rule 13 LiquidFiltration  WaterFiltName   LOGIC_ON   CONDITION_WATER_QUAL  EXCLUSION_HAS_WATER
+  equip_rule 14 LiquidFiltration  WaterFiltName   LOGIC_ON   CONDITION_WATER_QUAL  EXCLUSION_HAS_WATER
 
 
   sb PressureReg Setting 95                                 # Regulator to 95kPa - Configure equipment defaults
-  sb BackPressureReg Setting 93                             # Regulator to 93kPa - Configure equipment defaults
-  sb VolumePump Setting 1                                   # Pump 1 l/t into greenhouse when there's a call for air fill
-  sb WaterPump Setting 1                                    # Pump 1 l/t into greenhouse when there's a call for water fill
+  sb BackPressureReg Setting 93                             # BPR to 93kPa - Configure equipment defaults
+  sb VolumePump Setting 10                                   # Pump 10 l/t into/out of greenhouse
+  sb WaterPump Setting 1                                    # Pump 1 l/t into greenhouse when there's a call for air fill
   sb GasMixer Setting 50                                    # Init to 50/50 split
-  sbn ActiveVent FiltrationName Mode 1                      # Active vent INWARD to pull air (otherwise, we're going to pop the greenhouse)
-  sbn ActiveVent FiltrationName PressureInternal 30000      # Try to run filtration at high efficiency
+  sbn ActiveVent FiltrationName Mode 1                      # Filtration vent INWARD to pull air
 
+  yield
+  sbn ActiveVent FiltrationName PressureInternal 30000      # Try to run filtration at high efficiency
+  sbn ActiveVent FiltrationName PressureExternal 65         # ..without triggering A PRES warn
+  sbn ActiveVent AirSupplyName PressureExternal 95          # Don't overpressure greenhouse for supply
   sb AccessReader Color Orange                              # Orange LED means extended functions are set up
 
   
@@ -561,12 +568,12 @@ update_common:                                              # Update the display
   poke SP_UNLOCKED Unlocked
   select Scratch2 Unlocked Green Red                        # Change access reader colour based on unlock state
   sb AccessReader Color Scratch2                            # Access reader color = unlock state
-  lb Scratch2 LogicSwitch Setting Sum                       # Set switch colour based on run state + unlock state
+  lbn Scratch2 LogicSwitch SwitchName Setting Sum           # Set switch colour based on run state + unlock state
   seq Scratch4 Scratch2 Active                              # Scratch4 := Switch matches state
   select Scratch3 Active Green Red                          # Switch is Green if on + onlocked, red if off + unlocked (or if switch matches state)
   select Scratch5 Scratch4 Scratch3 Orange                  # If unlocked or matches, use unlocked colour.  If locked and mismatch, orange.
   select Scratch4 Unlocked Scratch3 Scratch5
-  sb LogicSwitch Color Scratch4
+  sbn LogicSwitch SwitchName Color Scratch4
   select Active Unlocked Scratch2 Active
   sb GrowLight On LightsOn                                  # Update lights with 'lights on' state
   add WarnTick WarnTick EnabExtended                        # Time up the warning iterate tick
@@ -576,7 +583,7 @@ update_common:                                              # Update the display
   select Scratch2 Active Scratch2 Black                     # Black if idle
   sb StatusLight Color Scratch2                             # Including color
   get Scratch2 db SP_DISPLAY1
-  sb LEDDisplay On Active                                   # And toggle displays based on active state
+  sbn LEDDisplay DisplayName On Active                      # And toggle displays based on active state
   s Scratch2 On 1                                           # Turn top display on all the time.  Due to how updates are processed, this will make the top display blink when the system is inactive
   get Scratch4 db SP_DISPLAY2                               # Then the RefID of the middle display
   beqz Active equip_ctrl                                    # If not active, jump to mode handler

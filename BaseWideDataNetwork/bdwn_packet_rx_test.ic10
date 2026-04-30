@@ -1,0 +1,4 @@
+define BWDN_DEBUG 1
+define BWDN_EventClass 2
+
+include bwdn_netchannels_synchronized.ic10

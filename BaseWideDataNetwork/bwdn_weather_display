@@ -1,0 +1,103 @@
+define BWDN_OS_MODE 1
+define BWDN_EventClass 3
+
+include bwdn_netchannels_synchronized.ic10
+
+  define  WeatherStation  Hash("StructureWeatherStation")
+  define  SolarSensor     Hash("StructureDaylightSensor")
+  define  DiodeSlide2     Hash("ModularDeviceSliderDiode2")
+  define  LEDDisplay3     Hash("ModularDeviceLEDdisplay3")
+
+  define  TimeDisplay     Hash("Time")
+  define  TypeDisplay     Hash("Type")
+  define  WeatherDisplay  Hash("Weather")
+  define  TODDisplay      Hash("Time of Day")
+  define  STR_TIME                      0x6D000073 ;"m\x00\x00s"
+
+  define  STORM_MODULUS_1 31
+  define  STORM_MODULUS_2 6
+
+  define  STATE_TABLE  85
+  define  TYPES_TABLE     90
+  define  MINUTES_TABLE   100
+  define  SECONDS_TABLE   110
+
+
+
+  alias LastState         r0
+  alias WeatherState      r1
+  alias WeatherType       r2
+  alias WeatherTime       r3
+  alias Scratch           r4
+  alias Scratch2          r5
+  alias Scratch3          r6
+
+  alias TxPacket          r13
+
+init_sub:
+  sb DiodeSlide2 Setting 1
+  sb DiodeSlide2 On 0
+  sb LEDDisplay3 Mode 10
+  sbn LEDDisplay3 TimeDisplay Mode 7
+
+time_init_loop:                                               ; Construct lookup table for time-remaining strings
+  add Scratch Scratch 1
+  move Scratch2 0x303000                                      ; Initialize Scratch2 to "00 " where the space is a null byte
+
+  mod Scratch3 Scratch 10                                     ; Add ones digit to second character in string
+  sll Scratch3 Scratch3 8                                     ; ASCII in place is already '0' so we just have to increment it
+  add Scratch2 Scratch2 Scratch3
+
+  div Scratch3 Scratch 10                                     ; Do the same for the tens digit
+  trunc Scratch3 Scratch3
+  sll Scratch3 Scratch3 16
+  add Scratch2 Scratch2 Scratch3
+
+  add Scratch3 Scratch SECONDS_TABLE
+  poke Scratch3 Scratch2
+
+  bgt Scratch 9 no_write_seconds                              ; If x < 10, change the first byte from 0 to \x00 for tens digit of minutes table entry
+  ins Scratch2 Str(" ") 16 8
+
+no_write_seconds:
+  add Scratch3 Scratch MINUTES_TABLE                          ; Write minutes table entry
+  poke Scratch3 Scratch2
+  blt Scratch 60 time_init_loop                               ; Anything > 99m59s is beyond the ETA limit
+
+  j ra
+
+get_tx_packet_sub:
+  j no_tx
+
+rx_packet_sub:
+  pop LastState
+  ext WeatherState LastState 0 3
+  ext WeatherType LastState 3 3
+  ext WeatherTime LastState 6 12
+  seq Scratch WeatherState 1
+
+  sbn LEDDisplay3 TimeDisplay On Scratch
+
+  add WeatherType WeatherType TYPES_TABLE
+  get WeatherType db WeatherType
+  sbn LEDDisplay3 TypeDisplay Setting WeatherType
+
+  add WeatherState WeatherState STATE_TABLE
+  get WeatherState db WeatherState
+  sbn LEDDisplay3 WeatherDisplay Setting WeatherState
+
+  mod Scratch2 WeatherTime 60                                 ; Then assemble the time string using lookup tables
+  add Scratch2 Scratch2 SECONDS_TABLE                         ; We look up the "seconds" and "minutes" number groups separately.
+  get Scratch db Scratch2                                     ; Load seconds display to Scratch
+
+  div Scratch3 WeatherTime 60                                 ; Subtract seconds from total then divide by 60 to get integer minutes remaining
+  floor Scratch3 Scratch3
+  add Scratch3 Scratch3 MINUTES_TABLE                         ; Load from data table
+  get Scratch3 db Scratch3                                    ; and insert into the minutes section.
+  ins Scratch2 Scratch3 24 24                                 ; NOTE: Both number groups are *3* characters long, rightmost chars are \00 and replaced below.
+
+  or Scratch2 Scratch2 STR_TIME                               ; Bitwise-OR the "m  s" text into the display overtop of the \00 characters from M/S strings
+
+  sbn LEDDisplay3 TimeDisplay Setting Scratch2                ; and write to large LCD
+
+  j ra

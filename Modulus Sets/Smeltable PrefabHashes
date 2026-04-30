@@ -1,0 +1,21 @@
+Smallest double-modulus to ensure unique table indices for 19 hashes: 199424
+Fit into data table length set by 2nd modulus 21
+ItemSilverIngot = 17
+ItemSiliconIngot = 18
+ItemNickelIngot = 7
+ItemLeadIngot = 19
+ItemIronIngot = 14
+ItemGoldIngot = 16
+ItemCopperIngot = 13
+ItemSteelIngot = 3
+ItemSolderIngot = 11
+ItemInvarIngot = 20
+ItemElectrumIngot = 12
+ItemConstantanIngot = 15
+ItemWaspaloyIngot = 5
+ItemStelliteIngot = 4
+ItemInconelIngot = 8
+ItemHastelloyIngot = 6
+ItemAstroloyIngot = 9
+ItemCoalOre = 1
+ItemCobaltOre = 2

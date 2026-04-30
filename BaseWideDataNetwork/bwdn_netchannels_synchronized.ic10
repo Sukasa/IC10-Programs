@@ -1,0 +1,101 @@
+  define BWDN_MessageSize     48
+  define BWDN_HeaderSize      4
+
+  define BWDN_BufferSize      7
+  define BWDN_Transit         165
+  define BWDN_WritePtr        Channel7
+
+  define BWDN_Upstream_Net    db:1
+  define BWDN_Downstream_Net  db:0
+  define BWDN_TXChannel       Channel0
+  define BWDN_RXChannel       Channel1
+
+  ;define BWDN_OS_MODE ; Define this if including this in another file to operate this code as an OS calling a network daemon [get_tx_packet_sub] and [rx_packet_sub]
+
+  ; Unreserved registers, which can be overwritten by application code
+  ; regs r0-r11 - these will be preserved by the OS
+
+  ; The following are not preserved by the OS code
+  alias BWDNScratch2              r12
+  alias BWDNScratch               r13
+
+  ; Reserved registers, which MUST NOT be overwritten
+  alias BWDNReadPtr               r14
+  alias BWDNWritePtr              r15
+
+ifndef BWDN_EventClass
+  define BWDN_EventClass      1
+endif
+
+init:
+ifdef BWDN_OS_MODE
+  jal init_sub
+endif
+init_done:
+
+  div BWDNScratch 0 0
+  s BWDN_Downstream_Net BWDN_TXChannel BWDNScratch
+
+  l BWDNReadPtr BWDN_Upstream_Net BWDN_WritePtr ; Init read pointer to current network write ptr
+  sge BWDNWritePtr BWDNReadPtr LogicType.Channel0 ; If < Channel0 or NaN, then reinitialize network write pointer
+  select BWDNReadPtr BWDNWritePtr BWDNReadPtr LogicType.Channel0
+  sle BWDNWritePtr BWDNReadPtr LogicType.Channel6 ; If > Channel6, then reinitialize network write pointer
+  select BWDNReadPtr BWDNWritePtr BWDNReadPtr LogicType.Channel0
+  s BWDN_Upstream_Net BWDN_WritePtr BWDNReadPtr
+
+main_loop:
+  yield
+  l BWDNWritePtr BWDN_Upstream_Net BWDN_WritePtr
+  bapz BWDNWritePtr 1 rx_loop
+  s BWDN_Upstream_Net BWDN_WritePtr LogicType.Channel0
+  move BWDNReadPtr LogicType.Channel0
+  j main_loop
+
+rx_loop:
+  beq BWDNReadPtr BWDNWritePtr rx_done
+  l BWDNScratch BWDN_Upstream_Net BWDNReadPtr
+  mod BWDNReadPtr BWDNReadPtr BWDN_BufferSize ; Then increment buffer pointer to the next read position
+  add BWDNReadPtr BWDNReadPtr BWDN_Transit
+  ext BWDNScratch2 BWDNScratch BWDN_MessageSize BWDN_HeaderSize ; Check the received packet type to see if we should process it
+  bne BWDNScratch2 BWDN_EventClass rx_loop ; If not, check next buffer packet
+  ext BWDNScratch BWDNScratch 0 BWDN_MessageSize ; Otherwise extract packet data
+ifdef BWDN_DEBUG
+  s db Setting BWDNScratch ;DEBUG: set housing setting to received packet
+endif
+  push BWDNScratch ; and store in emit stack
+  j rx_loop
+
+rx_done: ; Finished receiving.
+
+ifdef BWDN_OS_MODE
+  jal get_tx_packet_sub
+else
+  l BWDNScratch BWDN_Downstream_Net BWDN_TXChannel
+  bnan BWDNScratch no_tx
+endif
+
+  ins BWDNScratch BWDN_EventClass BWDN_MessageSize BWDN_HeaderSize
+  s BWDN_Upstream_Net BWDNWritePtr BWDNScratch
+  mod BWDNWritePtr BWDNWritePtr BWDN_BufferSize ; Then increment buffer pointer to the next read position
+  add BWDNReadPtr BWDNWritePtr BWDN_Transit ; While updating write pointer
+  s BWDN_Upstream_Net BWDN_WritePtr BWDNReadPtr
+
+ifndef BWDN_OS_MODE
+  div BWDNScratch 0 0
+  s BWDN_Downstream_Net BWDN_TXChannel BWDNScratch
+endif
+no_tx:
+
+emit_buf:
+  beqz sp main_loop
+
+ifdef BWDN_OS_MODE
+  jal rx_packet_sub
+  brgtz sp -1
+else
+  l BWDNScratch BWDN_Downstream_Net BWDN_RXChannel
+  bapz BWDNScratch 1 main_loop ; branch if not NaN so that we don't clobber the inbox
+  pop BWDNScratch
+  s BWDN_Downstream_Net BWDN_RXChannel BWDNScratch
+endif
+  j main_loop

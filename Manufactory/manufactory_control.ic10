@@ -136,6 +136,7 @@ end_printer_loop:
   yield
   yield
   yield
+  yield
   l Scratch d0 ExportCount
   s LowInterfaceRefId:1 Mod_PrinterMetaCommand Scratch
   s d0 ClearMemory 1

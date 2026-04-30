@@ -1,0 +1,43 @@
+define BWDN_OS_MODE 1
+define BWDN_EventClass 3
+
+include bwdn_netchannels_synchronized.ic10
+
+define  WeatherStation    Hash("StructureWeatherStation")
+define  SolarSensor       Hash("StructureDaylightSensor")
+
+define  STORM_MODULUS_1   31
+define  STORM_MODULUS_2   6
+
+alias LastState           r0
+alias Scratch             r1
+alias Scratch2            r2
+alias LastPacket          r3
+alias StormType           r4
+
+alias TxPacket            r13
+
+init_sub:
+  move LastState 0
+  j ra
+
+get_tx_packet_sub:
+  lb TxPacket WeatherStation Mode Sum
+  lb Scratch WeatherStation NextWeatherHash Sum
+  mod Scratch Scratch STORM_MODULUS_1
+  mod Scratch Scratch STORM_MODULUS_2
+  seq Scratch2 TxPacket 1
+  select StormType Scratch2 Scratch StormType
+  ins TxPacket StormType 3 3
+  lb Scratch WeatherStation NextWeatherEventTime Sum
+  ins TxPacket Scratch 6 12
+  lb Scratch SolarSensor SolarAngle Sum
+  slt Scratch Scratch 90
+  ins TxPacket Scratch 18 1
+  seq Scratch TxPacket LastPacket
+  move LastPacket TxPacket
+  select ra Scratch no_tx ra
+  j ra
+
+rx_packet_sub:
+  j ra

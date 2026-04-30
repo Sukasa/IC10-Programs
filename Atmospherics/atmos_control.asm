@@ -16,7 +16,7 @@
   define  Crusher         $72C32
   define  DrainPort       $6AE1E
   define  DrainPump       $70F89
-  define  Scavenger       $B4C98
+  define  Scavenger       3246345
   define  ExtHeater       $76F6A
   define  IntHeater1      $766A0
   define  IntHeater2      $766A4

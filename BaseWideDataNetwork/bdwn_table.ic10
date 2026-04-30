@@ -1,0 +1,2 @@
+  define  BWDN_WeatherPacket 1
+  define  BWDN_PowerPlant 2

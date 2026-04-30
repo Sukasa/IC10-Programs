@@ -1,0 +1,86 @@
+  include bdwn_table.ic10
+
+  define BWDN_OS_MODE 1
+  define BWDN_EventClass Calc(BWDN_PowerPlant)
+
+  include bwdn_netchannels_synchronized.ic10
+
+  define  SP_REFERENCEIDS 100 ; Start of RefId tables
+
+  define  Battery         Hash("StructureBatteryLarge")
+  define  CableAnalyzer   Hash("StructureCableAnalysizer")
+
+  alias   devRefId        r0
+  alias   devNameHash     r1
+  alias   tickIdx         r2
+  alias   devPrefabHash   r3
+  alias   xmitLogicType   r4
+  alias   stackSize       r5
+  alias   multiplier      r6
+  alias   devIdx          r7
+
+  alias   findPrefab      r11
+  alias   networkIdx      r12
+  alias   txPacket        r13
+
+  alias   networkCount    r13
+  alias   devTableIdx     r14
+  alias   devPrefab       r15
+
+init_sub:
+  ; Find generators
+  move sp SP_REFERENCEIDS
+
+  ; Find Transformers
+  move findPrefab CableAnalyzer
+  jal prefab_search
+
+  ; Find batteries
+  move findPrefab Battery
+  jal prefab_search
+  move stackSize sp
+  move devIdx sp
+  move sp 0
+
+  j init_done
+
+get_tx_packet_sub:
+  seqz tickIdx tickIdx
+  beqz tickIdx no_tx
+
+
+  bgt devIdx SP_REFERENCEIDS no_reset
+  move devIdx stackSize
+no_reset:
+
+  sub devIdx devIdx 1
+  get devRefId db devIdx
+  l devNameHash devRefId NameHash
+  l devPrefabHash devRefId PrefabHash
+  seq devPrefabHash devPrefabHash CableAnalyzer
+  select xmitLogicType devPrefabHash LogicType.PowerActual LogicType.Ratio
+  select multiplier devPrefabHash 1 1000
+  l xmitLogicType devRefId xmitLogicType
+  mul xmitLogicType xmitLogicType multiplier
+  ins txPacket xmitLogicType 0 16
+  add devNameHash devNameHash 0x80000000
+  ins txPacket devNameHash 16 32
+  j ra ; jump to ra if you want to send a packet (stored in r12), or "j no_tx" if not sending a packet
+
+rx_packet_sub:
+  move sp 0
+  j ra
+
+prefab_search:
+  move networkIdx -1
+  lb networkCount findPrefab PrefabHash Sum
+
+_prefab_search_loop:
+  add networkIdx networkIdx 1
+  get devRefId db:0 networkIdx
+  l devPrefab devRefId PrefabHash
+  bne devPrefab findPrefab _prefab_search_loop
+  push devRefId
+  sub networkCount networkCount findPrefab
+  bnez networkCount _prefab_search_loop
+  j ra

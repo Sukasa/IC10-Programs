@@ -1,0 +1,9 @@
+  define BWDN_TXPort          Channel0
+
+main_loop:
+  yield
+  yield
+  add r0 r0 1
+  mod r0 r0 32
+  s db:0 BWDN_TXPort r0
+  j main_loop

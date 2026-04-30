@@ -1,0 +1,21 @@
+Smallest double-modulus to ensure unique table indices for 19 hashes: 309689
+Fit into data table length set by 2nd modulus 20
+Silver = 14
+Silicon = 7
+Nickel = 9
+Lead = 12
+Iron = 19
+Gold = 17
+Copper = 16
+Steel = 4
+Solder = 3
+Invar = 8
+Electrum = 6
+Constantan = 2
+Waspaloy = 5
+Stellite = 13
+Inconel = 18
+Hastelloy = 10
+Astroloy = 11
+Hydrocarbon = 1
+Cobalt = 0
