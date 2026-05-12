@@ -1,5 +1,6 @@
+include bdwn_table.ic10
 define BWDN_OS_MODE 1
-define BWDN_EventClass 3
+define BWDN_EventClass Calc(BWDN_WeatherPacket)
 
 include bwdn_netchannels_synchronized.ic10
 
@@ -9,7 +10,6 @@ define  SolarSensor       Hash("StructureDaylightSensor")
 define  STORM_MODULUS_1   31
 define  STORM_MODULUS_2   6
 
-alias LastState           r0
 alias Scratch             r1
 alias Scratch2            r2
 alias LastPacket          r3
@@ -18,7 +18,7 @@ alias StormType           r4
 alias TxPacket            r13
 
 init_sub:
-  move LastState 0
+  move LastPacket 0
   j ra
 
 get_tx_packet_sub:
@@ -32,7 +32,7 @@ get_tx_packet_sub:
   lb Scratch WeatherStation NextWeatherEventTime Sum
   ins TxPacket Scratch 6 12
   lb Scratch SolarSensor SolarAngle Sum
-  slt Scratch Scratch 90
+  sgt Scratch Scratch 90
   ins TxPacket Scratch 18 1
   seq Scratch TxPacket LastPacket
   move LastPacket TxPacket

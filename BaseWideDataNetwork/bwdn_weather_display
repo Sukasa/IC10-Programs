@@ -1,5 +1,6 @@
+include bdwn_table.ic10
 define BWDN_OS_MODE 1
-define BWDN_EventClass 3
+define BWDN_EventClass Calc(BWDN_WeatherPacket)
 
 include bwdn_netchannels_synchronized.ic10
 
@@ -12,16 +13,16 @@ include bwdn_netchannels_synchronized.ic10
   define  TypeDisplay     Hash("Type")
   define  WeatherDisplay  Hash("Weather")
   define  TODDisplay      Hash("Time of Day")
-  define  STR_TIME                      0x6D000073 ;"m\x00\x00s"
+  define  STR_TIME        0x6D000073 ;"m\x00\x00s"
 
   define  STORM_MODULUS_1 31
   define  STORM_MODULUS_2 6
 
-  define  STATE_TABLE  85
+  define  STATE_TABLE     85
   define  TYPES_TABLE     90
   define  MINUTES_TABLE   100
   define  SECONDS_TABLE   110
-
+  define  DAY_TABLE       80
 
 
   alias LastState         r0
@@ -31,14 +32,37 @@ include bwdn_netchannels_synchronized.ic10
   alias Scratch           r4
   alias Scratch2          r5
   alias Scratch3          r6
+  alias Inbound           r7
+  alias Counter           r8
 
   alias TxPacket          r13
 
 init_sub:
+  poke Calc(DAY_TABLE+0) Str("DAY")
+  poke Calc(DAY_TABLE+1) Color.Yellow
+  poke Calc(DAY_TABLE+2) Str("NIGHT")
+  poke Calc(DAY_TABLE+3) Color.White
+
+  poke Calc(STATE_TABLE+0) Str("CLEAR")
+  poke Calc(STATE_TABLE+1) Str("WARN")
+  poke Calc(STATE_TABLE+2) Str("STORM")
+
+  poke Calc(TYPES_TABLE+0) Str("SOLAR")
+  poke Calc(TYPES_TABLE+1) Str("ASH")
+  poke Calc(TYPES_TABLE+2) Str("SNOW")
+  poke Calc(TYPES_TABLE+3) Str("STORM")
+  poke Calc(TYPES_TABLE+4) Str("SOLAR")
+  poke Calc(TYPES_TABLE+5) Str("DUST")
+
+  sbn LEDDisplay3 TypeDisplay On 0
   sb DiodeSlide2 Setting 1
   sb DiodeSlide2 On 0
   sb LEDDisplay3 Mode 10
-  sbn LEDDisplay3 TimeDisplay Mode 7
+  sbn LEDDisplay3 TimeDisplay Mode 10
+  sb DiodeSlide2 On 1
+  sb DiodeSlide2 Color Color.Red
+  move Inbound 0
+  move Scratch -1
 
 time_init_loop:                                               ; Construct lookup table for time-remaining strings
   add Scratch Scratch 1
@@ -64,31 +88,50 @@ no_write_seconds:
   poke Scratch3 Scratch2
   blt Scratch 60 time_init_loop                               ; Anything > 99m59s is beyond the ETA limit
 
-  j ra
+  move LastState 0
+  j force_init_display
 
 get_tx_packet_sub:
+  sb DiodeSlide2 On Inbound
   j no_tx
 
 rx_packet_sub:
   pop LastState
+
+force_init_display:
+  s db Setting LastState
   ext WeatherState LastState 0 3
   ext WeatherType LastState 3 3
   ext WeatherTime LastState 6 12
-  seq Scratch WeatherState 1
+  snez Inbound WeatherState
 
+  ext Scratch LastState 18 1
+  mul Scratch Scratch 2
+  add Scratch Scratch DAY_TABLE
+  get Scratch2 db Scratch
+  sbn LEDDisplay3 TODDisplay Setting Scratch2
+
+  add Scratch Scratch 1
+  get Scratch db Scratch
+  sbn LEDDisplay3 TODDisplay Color Scratch
+
+
+  seq Scratch WeatherState 1
   sbn LEDDisplay3 TimeDisplay On Scratch
 
-  add WeatherType WeatherType TYPES_TABLE
-  get WeatherType db WeatherType
-  sbn LEDDisplay3 TypeDisplay Setting WeatherType
+  sbn LEDDisplay3 TypeDisplay On Inbound
 
-  add WeatherState WeatherState STATE_TABLE
-  get WeatherState db WeatherState
-  sbn LEDDisplay3 WeatherDisplay Setting WeatherState
+  add Scratch WeatherType TYPES_TABLE
+  get Scratch db Scratch
+  sbn LEDDisplay3 TypeDisplay Setting Scratch
+
+  add Scratch WeatherState STATE_TABLE
+  get Scratch db Scratch
+  sbn LEDDisplay3 WeatherDisplay Setting Scratch
 
   mod Scratch2 WeatherTime 60                                 ; Then assemble the time string using lookup tables
   add Scratch2 Scratch2 SECONDS_TABLE                         ; We look up the "seconds" and "minutes" number groups separately.
-  get Scratch db Scratch2                                     ; Load seconds display to Scratch
+  get Scratch2 db Scratch2                                    ; Load seconds display to Scratch
 
   div Scratch3 WeatherTime 60                                 ; Subtract seconds from total then divide by 60 to get integer minutes remaining
   floor Scratch3 Scratch3
