@@ -32,7 +32,9 @@ rx_packet_sub:
   ext devValue rxPacket 0 16
   ext devNameHash rxPacket 16 32
   sub devNameHash devNameHash 0x80000000
+  sgt multiplier devValue 0
   sle isRatio devValue 1000
+  and isRatio isRatio multiplier
   select multiplier isRatio 1000 1
   div devValue devValue multiplier
   select devPrefabHash isRatio DiodeSlide LEDDisplay2
