@@ -2,7 +2,6 @@ include unit_furnace_definitions.asm
 
 section ui_module requires definitions
   alias  BatteryMax                r5
-  lbn MasterDevice ICHousingCompact MasterChip ReferenceId Sum
 
 ui_loop:
   yield
@@ -15,16 +14,14 @@ ui_loop:
   sge Scratch2 Scratch Scratch2
   select Scratch2 Scratch2 STR("EXT") STR("INT")
   sbn LEDDisplay2 PowerSource Setting Scratch2
-  sbn LEDDisplay2 PowerSource Mode CONSOLE_TEXT
 
   ; Now run battery level estimation
   lbn Scratch2 CableAnalyzer EquipInternalPower PowerPotential Sum
   sub Scratch4 Scratch2 Scratch ; Get available power in battery
   max BatteryMax BatteryMax Scratch4
-  div Scratch4 BatteryMax Scratch4
+  div Scratch4 Scratch4 BatteryMax
   select Scratch4 BatteryMax Scratch4 0
-  sbn LEDDisplay2 PowerSource Setting Scratch4
-  sbn LEDDisplay2 PowerSource Mode CONSOLE_PERCENT
+  sbn LEDDisplay2 BatteryCharge Setting Scratch4
 
   ; Update temperature gauge happy point based on current recipe
   get Scratch MasterDevice MSTR_SP_CURRENT_RECIPE
@@ -76,22 +73,22 @@ ui_loop:
   ; Chamber Gauges
 
   lb Scratch AdvancedFurnace Pressure Sum
+  mul Scratch2 Scratch 1000
+  sbn LEDDisplay2 ChamberPressure Setting Scratch2
   move Scratch2 ChamberPressure
   move sp UI_SP_CHAMBER_GAUGE
   jal gauge
+  sbn LEDDisplay2 ChamberPressure Color Scratch4
 
   lb Scratch AdvancedFurnace Temperature Sum
+  sbn LEDDisplay2 ChamberTemperature Setting Scratch
   move Scratch2 ChamberTemperature
   move sp UI_SP_TEMPERATURE_GAUGE
   jal gauge
+  sbn LEDDisplay2 ChamberTemperature Color Scratch4
 
 
   ; Blanket Gauges
-
-  lb Scratch GasSensor Pressure Sum
-  move Scratch2 BlanketPressure
-  move sp UI_SP_BLANKET_GAUGE
-  jal gauge
 
   lb Scratch GasSensor Temperature Sum
   move Scratch2 BlanketTemperature
@@ -106,6 +103,11 @@ ui_loop:
   lbn Scratch GasAnalyzer EquipBlanketTank Pressure Sum
   move Scratch2 BlanketTankPressure
   move sp UI_SP_BLANKET_TANK_GAUGE
+  jal gauge
+
+  lb Scratch GasSensor Pressure Sum
+  move Scratch2 BlanketPressure
+  move sp UI_SP_BLANKET_GAUGE
   jal gauge
 
 
@@ -127,9 +129,6 @@ ui_loop:
   snez Scratch Scratch
   sbn LightDiodeSmall ChamberVent On Scratch
 
-
-  sb LEDDisplay3 Mode CONSOLE_TEXT
-
   ; Mode Indicator
   get Scratch MasterDevice MSTR_SP_CHAMBER_STATE
   add Scratch2 Scratch UI_SP_MODE_STRINGS
@@ -143,7 +142,7 @@ ui_loop:
   get Scratch MasterDevice MSTR_SP_CURRENT_RECIPE
   get Scratch MasterDevice Scratch
   sbn LEDDisplay3 AlloyDisplay Setting Scratch
-  sbn LEDDisplay3 AlloyDisplay Color White
+  sbn LEDDisplay3 AlloyDisplay Color Color.White
 
   ; Mix Displays
   move Scratch MSTR_SP_MIX_TABLE
@@ -151,19 +150,22 @@ ui_loop:
 
 next_reagent:
   get Scratch2 MasterDevice Scratch
-  mod Scratch2 Scratch2 REAGENT_MODULUS
-  add Scratch2 Scratch2 UI_SP_REAGENT_NAMES
-  get Scratch2 db Scratch2
+  mod Scratch3 Scratch2 REAGENT_MODULUS_1
+  mod Scratch3 Scratch3 REAGENT_MODULUS_2
+  add Scratch3 Scratch3 UI_SP_REAGENT_NAMES
+  get Scratch3 db Scratch3
+  select Scratch3 Scratch2 Scratch3 0
   add Scratch 1 Scratch
-  pop Scratch3
-  sbn LEDDisplay2 Scratch3 Setting Scratch2
-  sbn LEDDisplay2 Scratch3 Mode CONSOLE_TEXT
+  pop Scratch4
+  sbn LEDDisplay2 Scratch4 Setting Scratch3
 
   get Scratch2 MasterDevice Scratch
   add Scratch 1 Scratch
   pop Scratch3
   sbn LEDDisplay2 Scratch3 Setting Scratch2
   sbn LEDDisplay2 Scratch3 Mode CONSOLE_MASS
+  snez Scratch2 Scratch2
+  sbn LEDDisplay2 Scratch3 On Scratch2
   blt Scratch MSTR_SP_MIX_TABLE_END next_reagent
 
   j ui_loop

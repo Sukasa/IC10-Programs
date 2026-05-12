@@ -96,7 +96,7 @@ section definitions
   define  CtrlOpenCrucible          Hash("Open Crucible")
   define  CtrlChamberFillRate       Hash("Chamber Fill Rate l/s")
   define  CtrlChamberVentRate       Hash("Chamber Vent Rate l/s")
-  define  CtrlBlanketFillPres       Hash("Blanket Pressurize Setpoint kPa")e
+  define  CtrlBlanketFillPres       Hash("Blanket Pressurize Setpoint kPa")
   define  CtrlBlanketVentPres       Hash("Blanket Depressurize Setpoint kPa")
   define  CtrlBlanketTankFillPres   Hash("Blanket Tank Pressurize Setpoint kPa")
   define  CtrlBlanketTankVentRate   Hash("Blanket Tank Vent Rate l/s")
@@ -160,12 +160,13 @@ section definitions
   define  RECIPE_STRIDE             11
 
   define  UI_SP_REAGENT_NAMES       430
-  define  REAGENT_MODULUS           78 ; TODO
+  define  REAGENT_MODULUS_1         26267
+  define  REAGENT_MODULUS_2         21
 
   define  MSTR_SP_RECIPE_TABLE      200
   define  MSTR_SP_RECIPE_TABLE_END  Calc(RECIPE_STRIDE*10+MSTR_SP_RECIPE_TABLE)
   define  MSTR_SP_MIX_TABLE         300
-  define  MSTR_SP_MIX_TABLE_END     6; MSTR_SP_MIX_TABLE + 6
+  define  MSTR_SP_MIX_TABLE_END     Calc(MSTR_SP_MIX_TABLE+6)
 
   define  MSTR_SP_CHAMBER_STATE     10
   define  MSTR_SP_LOAD_STATE        11
@@ -201,7 +202,12 @@ section definitions
   define  RECIPE_OFFSET_PRES_SP     3
   define  RECIPE_OFFSET_REAGENT1    4
   define  RECIPE_OFFSET_QUANTITY1   5
+  define  RECIPE_OFFSET_REAGENT2    6
+  define  RECIPE_OFFSET_QUANTITY2   7
+  define  RECIPE_OFFSET_REAGENT3    8
+  define  RECIPE_OFFSET_QUANTITY3   9
   define  RECIPE_OFFSET_TERMINATOR  10
+
 
   define  RECIPE_STRIDE_REAGENT     2 ; Stride between reagent entries
 
