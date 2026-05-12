@@ -35,6 +35,7 @@
   define  VlDump          $C2235
   define  C2Dump          $C2241
   define  WasteDump       $C222E
+  define  Accelerator     $3C9FB1
 
   define  Heater1         $766A0
   define  Heater2         $766A4
@@ -102,13 +103,13 @@ loop:
   s BAMixer On Scratch2
   
   l Scratch1 CO2Outlet Pressure                   # Run CO2 filtration based on tank pressure
-  l Scratch3 CO2Filter On
+  l Scratch3 CO2Filter Mode
   sle Scratch2 Scratch1 CO2_TANK_TARG
   or Scratch3 Scratch3 Scratch2
   sle Scratch2 Scratch1 CO2_TANK_STOP
   and Scratch3 Scratch3 Scratch2
   and Scratch3 Scratch3 FiltersEnab
-  s CO2Filter On Scratch3
+  s CO2Filter Mode Scratch3
   seqz Scratch3 Scratch3
   and Scratch3 Scratch3 FiltersEnab
   s CO2Bypass On Scratch3
@@ -169,6 +170,10 @@ loop:
   slt Scratch2 Scratch1 SCAV_WASTE_MAX
   and Scratch3 Scratch2 Scratch3
   s Scavenger On Scratch3
+
+  l Scratch1 CO2Filter PressureInput
+  slt Scratch1 Scratch1 40000
+  s Accelerator On Scratch1
 
   yield
   j loop
