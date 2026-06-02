@@ -1,0 +1,71 @@
+include bdwn_table.ic10
+
+define BWDN_OS_MODE 1
+define BWDN_EventClass Calc(BWDN_AtmosPacket)
+
+include bwdn_netchannels_synchronized.ic10
+
+  alias Data r0
+  alias Name r1
+  alias Reading r2
+  alias Ref r3
+  alias Colour r4
+
+  define Meter Hash("ModularDeviceGauge3x3")
+  define Bar Hash("ModularDeviceSliderDiode1")
+
+  define SP_BAR_TABLE 100
+  define SP_GAUGE_TABLE 200
+
+init_sub:
+  poke Calc(SP_BAR_TABLE + 0) Color.Red
+  poke Calc(SP_BAR_TABLE + 1) Color.Orange
+  poke Calc(SP_BAR_TABLE + 2) Color.Yellow
+  poke Calc(SP_BAR_TABLE + 3) Color.Green
+
+  poke Calc(SP_GAUGE_TABLE + 0) Color.Red
+  poke Calc(SP_GAUGE_TABLE + 1) Color.Green
+  poke Calc(SP_GAUGE_TABLE + 2) Color.Green
+  poke Calc(SP_GAUGE_TABLE + 3) Color.Green
+  poke Calc(SP_GAUGE_TABLE + 4) Color.Green
+  poke Calc(SP_GAUGE_TABLE + 5) Color.Green
+  poke Calc(SP_GAUGE_TABLE + 6) Color.Yellow
+  j ra
+
+get_tx_packet_sub:
+  j no_tx
+
+rx_packet_sub:
+  pop Data
+  ext Name Data 16 32
+  sub Name Name 0x80000000
+  s db Setting Name
+  ext Reading Data 10 6
+  div Colour Reading 10
+  floor Colour Colour
+  add Colour SP_GAUGE_TABLE Colour
+  get Colour db Colour
+  div Reading Reading 63
+  sbn Meter Name Setting Reading
+  sbn Meter Name Color Colour
+  lbn Reading Bar Name ReferenceId Sum
+  beqz Reading ra
+  lbn Ref Bar Name ReferenceId Maximum
+  ext Reading Data 0 5
+  div Colour Reading 8
+  div Reading Reading 31
+  floor Colour Colour
+  add Colour SP_BAR_TABLE Colour
+  get Colour db Colour
+  s Ref Setting Reading
+  s Ref Color Colour
+  lbn Ref Bar Name ReferenceId Minimum
+  ext Reading Data 5 5
+  div Colour Reading 8
+  div Reading Reading 31
+  floor Colour Colour
+  add Colour SP_BAR_TABLE Colour
+  get Colour db Colour
+  s Ref Setting Reading
+  s Ref Color Colour
+  j ra

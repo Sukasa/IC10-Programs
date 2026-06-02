@@ -1,0 +1,26 @@
+include bdwn_table.ic10
+
+define BWDN_OS_MODE 1
+define BWDN_EventClass Calc(BWDN_ElevPacket)
+
+include bwdn_netchannels_synchronized.ic10
+
+  define  LabelDiode2     Hash("ModularDeviceLabelDiode2")
+
+  alias LastLevel r0
+  alias CurrLevel r1
+
+init_sub:
+  move LastLevel -1
+  j ra
+
+get_tx_packet_sub:
+  l CurrLevel d0 ElevatorLevel
+  beq CurrLevel LastLevel no_tx
+  move BWDNScratch CurrLevel
+  move LastLevel CurrLevel
+  j ra
+
+rx_packet_sub:
+  move sp 0
+  j ra

@@ -1,0 +1,42 @@
+; Transmitter for storm state
+; Packet header is 1 (technically, set by the network interface)
+; Fields:
+; - 2 bits Storm State (None, Incoming, Active)
+; - 3 bits Storm Type (Double-Modulus Table, 31 & 6)
+;     SolarStorm = 4
+;     MarsDustStorm = 5
+;     EuropaSnowStorm = 2
+;     VulcanAshStorm = 1
+;     VulcanSolarStorm = 0
+;     VenusStorm = 3
+; - 11 bits Seconds Remaining
+
+  define  STORM_MODULUS_1     31
+  define  STORM_MODULUS_2     6
+  define  WeatherStation      Hash("StructureWeatherStation")
+
+  alias CachedStormType r15
+  alias LastPacket      r14
+
+  alias BWDN_TXPort           Channel0
+  alias BWDN_RXPort           Channel1
+
+
+main_loop:
+  yield
+  lb r0 WeatherStation Mode Average
+  bnan r0 main_loop
+  lb r1 WeatherStation NextWeatherHash Sum
+  mod r1 r1 STORM_MODULUS_1
+  mod r1 r1 STORM_MODULUS_2
+  sne r2 r0 2
+  select CachedStormType r2 r1 CachedStormType
+  lb r2 WeatherStation NextWeatherEventTime Sum
+  ceil r2 r2
+  and r2 r2 0x7FF
+  ins r2 CachedStormType 11 3
+  ins r2 r0 14 2
+  beq r2 LastPacket main_loop
+  move LastPacket r2
+  s db:0 BWDN_TXPort r2
+  j main_loop

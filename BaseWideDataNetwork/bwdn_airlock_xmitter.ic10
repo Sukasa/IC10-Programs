@@ -1,0 +1,39 @@
+include bdwn_table.ic10
+  define BWDN_OS_MODE 1
+  define BWDN_EventClass Calc(BWDN_DoorPacket)
+
+  alias LeftDoor        d0
+  alias RightDoor       d1
+
+include bwdn_netchannels_synchronized.ic10
+
+
+  alias LastXmitted     r0
+
+init_sub:
+  yield
+  bdns LeftDoor init_sub
+  bdnvl LeftDoor Open init_sub
+  bdns RightDoor init_sub
+  bdnvl LeftDoor Open init_sub
+  l BWDNScratch db NameHash
+  beq BWDNScratch Hash("IC Housing") init_sub
+  move LastXmitted -1
+  j ra
+
+get_tx_packet_sub:
+  bge BWDNRXCount 4 no_tx
+  l BWDNScratch LeftDoor Open
+  l BWDNScratch2 RightDoor Open
+  ins BWDNScratch BWDNScratch2 1 1
+  beq BWDNScratch LastXmitted no_tx
+  l BWDNScratch2 db NameHash
+  add BWDNScratch2 BWDNScratch2 $80000000
+  ins BWDNScratch BWDNScratch2 2 32
+  beq BWDNScratch LastXmitted no_tx
+  move LastXmitted BWDNScratch
+  j ra
+
+rx_packet_sub:
+  move sp 0
+  j ra

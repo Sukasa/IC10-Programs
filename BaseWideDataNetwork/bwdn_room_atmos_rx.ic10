@@ -1,0 +1,57 @@
+include bdwn_table.ic10
+  define BWDN_OS_MODE 1
+  define BWDN_EventClass Calc(BWDN_RoomPacket)
+
+include bwdn_netchannels_synchronized.ic10
+  alias packet r4
+
+  define  LEDDisplay2     Hash("ModularDeviceLEDdisplay2")
+
+init_sub:
+  poke 98  14
+  poke 99  Color.White
+  poke 100 10
+  poke 101 10
+  poke 102 Color.Orange
+  poke 103 STR("OCC")
+  poke 104 4
+  poke 105 Color.Yellow
+  poke 106 0.1
+  j ra
+
+get_tx_packet_sub:
+  j no_tx
+
+rx_packet_sub:
+  pop packet
+  ext r3 packet 16 32
+  sub r3 r3 0x80000000
+  lbn r0 LEDDisplay2 r3 ReferenceId Minimum ; Pressure in Pa (1u = 10Pa)
+  lbn r1 LEDDisplay2 r3 ReferenceId Sum ; Occupancy ("OCC" / Blank)
+  lbn r2 LEDDisplay2 r3 ReferenceId Maximum ; Temperature in C (1u = 0.1C)
+  sub r1 r1 r0 ; Now turn r1 from Sum to the middle LCD
+  sub r1 r1 r2
+
+  ext r3 packet 14 2 ; Get other parameters from packet
+  ext r4 packet 0 14
+  bne r3 2 not_temp
+  blt r4 8000 not_temp
+  sub r4 r4 16384
+not_temp:
+  move r0 rr3 ; Get RefID of selected LCD
+  bdns r0 ra
+  mul r6 r3 3
+  add r6 r6 100 ; Now get the multiplier from stack based on the LCD # param
+  get r5 db r6
+  bne r3 1 not_occ
+  snez r4 r4
+not_occ:
+  mul r4 r4 r5 ; Apply it
+  s r0 Setting r4 ; And store to LCD
+  sub r6 r6 1
+  get r4 db r6
+  s r0 Color r4 ; And store to LCD
+  sub r6 r6 1
+  get r4 db r6
+  s r0 Mode r4 ; And store to LCD
+  j ra

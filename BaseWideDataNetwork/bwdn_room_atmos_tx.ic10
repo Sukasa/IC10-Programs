@@ -1,0 +1,76 @@
+include bdwn_table.ic10
+  define  BWDN_OS_MODE              1
+  define  BWDN_EventClass           Calc(BWDN_RoomPacket)
+
+include bwdn_netchannels_synchronized.ic10
+
+  alias   Timer                     r4
+  alias   Step                      r3
+  alias   LastSent                  rr3
+
+  alias   Prefab                    r5
+  alias   Setting                   r6
+
+
+  define  GasSensor                 Hash("StructureGasSensor")
+  define  OccupancySensor           Hash("StructureOccupancySensor")
+  define  LEDDisplay2               Hash("ModularDeviceLEDdisplay2")
+
+init_sub:
+  yield
+  l BWDNScratch db NameHash
+  beq BWDNScratch Hash("IC Housing") init_sub
+
+  poke 297 100
+  poke 298 0
+  poke 299 LogicType.Pressure
+  poke 300 GasSensor
+
+  poke 301 1
+  poke 302 0
+  poke 303 LogicType.Activate
+  poke 304 OccupancySensor
+
+  poke 305 10
+  poke 306 273.15
+  poke 307 LogicType.Temperature
+  poke 308 GasSensor
+
+  move r0 0
+  move r1 0
+  move r2 0
+
+  j ra
+
+get_tx_packet_sub:
+  bge BWDNRXCount 4 no_tx
+  sub Timer Timer 1
+  mod Timer Timer 4
+  bnez Timer no_tx
+  add Step Step 1
+  mod Step Step 3
+  l BWDNScratch db NameHash
+  add BWDNScratch BWDNScratch 0x80000000
+  sll BWDNScratch BWDNScratch 16
+  ins BWDNScratch Step 14 2
+
+  mul sp Step 4
+  add sp sp 301
+  pop Prefab
+  pop Setting
+  lb Prefab Prefab Setting Maximum
+  pop Setting
+  sub Prefab Prefab Setting
+  pop Setting
+  mul Prefab Prefab Setting
+  floor Prefab Prefab
+  ins BWDNScratch Prefab 0 14
+
+  beq BWDNScratch LastSent no_tx
+  move LastSent BWDNScratch
+
+  j ra
+
+rx_packet_sub:
+  move sp 0
+  j ra

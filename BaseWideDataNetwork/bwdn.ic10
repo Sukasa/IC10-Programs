@@ -1,0 +1,107 @@
+section network_constants
+  define BWDN_WritePtr        510
+  define BWDN_Size            511
+
+  alias BWDN_RAMId_Channel    Channel0
+  alias BWDN_TXPort           Channel0
+  alias BWDN_RXPort           Channel1 ;Start of RX Ports
+
+  define BWDN_MessageSize     48
+  define BWDN_BufferSize      64
+
+  define BWDN_Upstream_Net    db:0
+  define BWDN_Downstream_Net  db:1
+
+  define BWDN_MaxStackDepth   17 ; Maximum receive stack depth + 1.  Pushes not stopped after this, but SP reset to this value each scan if above it
+
+section network_controller requires network_constants
+  alias PrevPtr     r1
+
+  ; BWDN main controller - holds the ring buffer for network messages and does just a little coordination
+  poke BWDN_WritePtr 0 ; Initialize
+  poke BWDN_Size BWDN_BufferSize ; 64-entry ring buffer
+
+loop:
+  yield
+  l r0 db ReferenceId ; Advertise this controller as the main ring buffer chip for the network
+  s BWDN_Upstream_Net BWDN_RAMId_Channel r0
+
+  ; Track how many writes there were last tick, and make available for activity monitoring
+  get r0 db BWDN_WritePtr
+  sub r2 PrevPtr
+  add r2 r2 BWDN_BufferSize
+  mod r2 r2 BWDN_BufferSize
+  s db Setting r2
+  move PrevPtr r0
+
+  j loop
+
+; Network interface.  Can't directly talk to anything not the BWDN, but it can set channels on the connected network it pulls power from
+section network_interface requires network_constants
+  alias JustSent              r11
+  alias RingSize              r12
+  alias WritePtr              r13
+  alias ReadPtr               r14
+  alias RAM                   r15
+  alias NaN                   ra
+
+  define EventType            0 ; Event Type (0..31) this gateway transmits/receives
+  define ReceivePorts         1 ; # of receive ports (Network Channels) to send packets to (i.e. higher receive volume), starting at BWDN_RXPort (Channel1.  Channel0 is TX port, always fixed at 1 msg/tick)
+
+  ; Initialize by getting main RAM data
+  div NaN 0 0
+  ins JustSent PacketFilter BWDN_MessageSize 5 ; Prep xmit packet wrapper
+
+init_loop:
+  yield
+  l RAM BWDN_Upstream_Net BWDN_RAMId_Channel ; pull main network chip RefId from network
+  bnan init_loop
+  bdns RAM init_loop
+
+  get RingSize RAM BWDN_Size
+  get ReadPtr RAM BWDN_WritePtr
+
+main_loop:
+  yield
+  min sp sp BWDN_MaxStackDepth ; If we've been receiving too many events and cannot keep up, drop packets
+  s db Setting sp ; And show receive stack depth as Setting for debug output
+  s BWDN_Downstream_Net BWDN_TXPort NaN
+  bdns RAM init_loop
+  get WritePtr RAM BWDN_WritePtr
+
+  ; Write before read - this way we're guaranteed atomicity when writing to the ring buffer due to how Stationeers handles IC10 chips
+  l r0 BWDN_Downstream_Net BWDN_TXPort
+  bnan r0 rx_loop
+  ins JustSent r0 0 BWDN_MessageSize
+  put RAM WritePtr JustSent
+  add WritePtr WritePtr 1
+  put RAM BWDN_WritePtr WritePtr
+  s BWDN_Downstream_Net BWDN_TXPort NaN
+
+rx_loop:
+  beq ReadPtr WritePtr emit_buf
+  get r0 RAM ReadPtr
+  add ReadPtr ReadPtr 1
+  mod ReadPtr ReadPtr RingSize
+  beq r0 JustSent rx_loop
+  ext r1 r0 BWDN_MessageSize 5
+  bne r1 PacketFilter rx_loop
+  ext r1 r1 0 BWDN_MessageSize
+  push r1
+  j rx_loop
+
+  ; Now that packets have been read off the main buffer, start doling out packets we stored to the receiver on our downstream network
+emit_buf:
+  beqz sp main_loop
+  move r1 -1
+
+emit_loop:
+  add ReceivePorts ReceivePorts 1
+  bge r1 ReceivePorts main_loop
+
+  add r2 BWDN_RXPort r1 ; r2 = base RX port + extra channel increment
+  l r0 BWDN_Downstream_Net r2
+  bapz r0 1 emit_loop ; branch if not NaN (bapz r0 1 will branch for ANY value of r0, but NaN should not branch as it can't be near 0 for any bapz amount) so that we don't clobber the inbox
+  pop r0
+  s BWDN_Downstream_Net r2 r0
+  j emit_loop

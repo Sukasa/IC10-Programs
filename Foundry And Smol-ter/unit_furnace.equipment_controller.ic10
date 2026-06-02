@@ -1,0 +1,119 @@
+lbn r15 2037291645 1221088011 ReferenceId Sum
+lb r12 545937711 ReferenceId Sum
+sb 24258244 On 0
+sbn -1280984102 -474702278 On 0
+sbn -1280984102 1175263606 On 0
+s r12 SettingInput 1
+s r12 Open 0
+sb -1129453144 On 1
+yield
+lb r0 -236516384 Setting Sum
+bnez r0 82
+sb -1612655781 Color Color.Black
+lbn r0 435685051 2128520928 RatioNitrogen Sum
+lb r1 -1252983604 RatioNitrogen Sum
+lerp r0 r1 r0 0.5
+slt r0 r0 1
+select r0 r13 0 r0
+lb r1 -1252983604 Pressure Sum
+lbn r2 435685051 2128520928 Pressure Sum
+add r1 r1 r2
+select r0 r1 r0 0
+sb 1310794736 On r0
+sb 1310794736 Setting 100
+seqz r1 r0
+sbn 209854039 1363778604 On r1
+beqz r0 29
+sb -1129453144 Mode 1
+sb -1129453144 PressureExternal 0
+j 35
+sbn 209854039 1363778604 Setting 50
+lb r1 -1252983604 Pressure Sum
+sgt r1 r1 200
+sb -1129453144 Mode r1
+select r0 r1 330 110
+sb -1129453144 PressureExternal r0
+sb -1129453144 On 1
+get r0 r15 12
+add r0 r0 3
+get r0 r15 r0
+select r0 r13 r0 1000
+l r1 r12 Pressure
+sub r3 r1 r0
+div r3 r3 r1
+max r3 r3 0
+mul r3 r3 1000
+min r3 r3 100
+s r12 SettingOutput r3
+get r13 r15 10
+beq r13 0 2
+slt r2 r1 r0
+select r2 r2 50 0
+s r12 SettingInput r2
+sne r2 r13 0
+get r0 r15 12
+add r0 r0 2
+get r9 r15 r0
+lb r1 -1252983604 Temperature Sum
+slt r0 r1 r9
+select r2 r2 r0 0
+lb r0 -1252983604 Pressure Sum
+sgt r0 r0 70
+and r2 r2 r0
+sb 24258244 On r2
+l r0 r12 Temperature
+sle r10 r0 r9
+lbn r0 435685051 -125174369 Pressure Sum
+seqz r0 r0
+or r2 r11 r0
+and r2 r2 r10
+seqz r10 r10
+seqz r3 r11
+or r3 r3 r0
+and r3 r3 r10
+sbn -1280984102 -474702278 On r2
+sbn -1280984102 1175263606 On r3
+select r11 r3 0 r11
+select r11 r2 1 r11
+seq r0 r13 3
+seq r1 r13 4
+or r0 r0 r1
+s r12 Open r0
+j 8
+lbn r0 -1612655781 -1070499487 Setting Sum
+sbn 209854039 1363778604 On r0
+select r0 r0 Color.Green Color.Red
+sbn -1612655781 -1070499487 Color r0
+lbn r0 -1612655781 -1926258657 Setting Sum
+sb 1310794736 On r0
+select r0 r0 Color.Green Color.Red
+sbn -1612655781 -1926258657 Color r0
+lbn r3 -1612655781 1856161663 Setting Sum
+sb -1129453144 Mode r3
+select r0 r3 Color.Red Color.Blue
+sbn -1612655781 1856161663 Color r0
+lbn r0 -1612655781 911601191 Setting Sum
+sb -1129453144 On r0
+select r0 r0 Color.Green Color.Red
+sbn -1612655781 911601191 Color r0
+lbn r0 1773255945 -21166311 Setting Sum
+sbn -1280984102 -474702278 On r0
+lbn r0 1773255945 181383648 Setting Sum
+sbn -1280984102 1175263606 On r0
+lbn r0 1773255945 1209960153 Setting Sum
+sb 24258244 On r0
+lbn r0 -1158984141 511322038 Setting Sum
+sb 1310794736 Setting r0
+lbn r0 -1158984141 791657856 Setting Sum
+sbn 209854039 1363778604 Setting r0
+lbn r0 -1158984141 2076578276 Setting Sum
+lbn r1 -1158984141 1631952782 Setting Sum
+select r0 r3 r1 r0
+sb -1129453144 PressureExternal r0
+lbn r0 -1158984141 695094920 Setting Sum
+s r12 SettingInput r0
+lbn r0 -1158984141 -193536754 Setting Sum
+s r12 SettingOutput r0
+lbn r0 1773255945 2112523434 Setting Sum
+s r12 Open r0
+j 8

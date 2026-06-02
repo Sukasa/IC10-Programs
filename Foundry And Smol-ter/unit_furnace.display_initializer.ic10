@@ -1,0 +1,95 @@
+lbn r15 2037291645 1221088011 ReferenceId Sum
+sb -246585138 Mode 10
+sub sp 395 6
+push 1620408252
+push -384739833
+push -1890116478
+push -1642699119
+push 1684055937
+push 119486251
+poke 189 400
+poke 188 0.7875
+poke 187 Color.Red
+poke 186 0.2625
+poke 185 Color.Green
+poke 184 0
+poke 183 Color.Yellow
+poke 179 1000
+poke 178 0.8
+poke 177 Color.Orange
+poke 176 0.05
+poke 175 Color.Green
+poke 174 0
+poke 173 Color.Red
+poke 169 1
+poke 168 0.95
+poke 167 Color.Green
+poke 166 0.9
+poke 165 Color.Orange
+poke 164 0
+poke 163 Color.Red
+poke 161 45000
+poke 160 0.9444444444444444
+poke 159 Color.Red
+poke 158 0.7777777777777778
+poke 157 Color.Orange
+poke 156 0.12222222222222222
+poke 155 Color.Green
+poke 154 0.044444444444444446
+poke 153 Color.Yellow
+poke 152 0
+poke 151 Color.Red
+poke 149 2000
+poke 148 0.5
+poke 147 Color.Red
+poke 146 0.25
+poke 145 Color.Yellow
+poke 144 0
+poke 143 Color.Green
+poke 139 2400
+poke 138 0.5
+poke 137 Color.Red
+poke 136 0.25
+poke 135 Color.Yellow
+poke 134 0
+poke 133 Color.Green
+poke 129 60000
+poke 128 0.5
+poke 127 Color.Red
+poke 126 0.25
+poke 125 Color.Green
+poke 124 0
+poke 123 Color.Yellow
+poke 433 1131372908
+poke 443 91712256370034
+poke 450 91725089697646
+poke 435 86214546515308
+poke 448 1281712484
+poke 432 1232236398
+poke 440 1198484580
+poke 434 74145906845042
+poke 431 74145670982772
+poke 430 358435087724
+poke 442 91738024994162
+poke 446 315385864562
+poke 441 76331827360365
+poke 438 74163153695854
+poke 437 96153318288505
+poke 439 91759500358757
+poke 449 315384622700
+poke 445 79660711701625
+poke 444 71964130700409
+move sp 110
+push 1231318117
+push 1282367844
+push 1131376491
+push 298137772916
+push 280824345204
+push 85080860352876
+move sp 100
+push Color.White
+push Color.Yellow
+push Color.Green
+push Color.Blue
+push Color.Red
+push Color.Orange

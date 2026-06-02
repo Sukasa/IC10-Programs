@@ -1,0 +1,34 @@
+  define BWDN_OS_MODE 1
+  define BWDN_EventClass 2
+
+  include bwdn_netchannels_synchronized.ic10
+
+  define  Generator       Hash("StructureSolidFuelGenerator")
+  define  Battery         Hash("StructureBatteryLarge")
+
+init_sub:
+  move Counter 0
+  j ra
+
+get_tx_packet_sub:
+
+  j ra ; jump to ra if you want to send a packet (stored in r12), or "j no_tx" if not sending a packet
+
+rx_packet_sub:
+  j ra
+
+prefab_search:
+  move networkIdx -1
+  lb networkCount findPrefab PrefabHash Sum
+
+_prefab_search_loop:
+  add networkIdx networkIdx 1
+  get devRefId db:0 networkIdx
+  l devPrefab devRefId PrefabHash
+  bne devPrefab findPrefab _prefab_search_loop
+  push devRefId
+  sub networkCount networkCount findPrefab
+  bnez networkCount _prefab_search_loop
+  poke devTableIdx sp
+  add devTableIdx devTableIdx 1
+  j ra

@@ -92,7 +92,7 @@ no_write_seconds:
   j force_init_display
 
 get_tx_packet_sub:
-  sb DiodeSlide2 On Inbound
+  sbn DiodeSlide2 Hash("Alarm") On Inbound
   j no_tx
 
 rx_packet_sub:
@@ -118,11 +118,11 @@ force_init_display:
 
   seq Scratch WeatherState 1
   sbn LEDDisplay3 TimeDisplay On Scratch
-
   sbn LEDDisplay3 TypeDisplay On Inbound
 
   add Scratch WeatherType TYPES_TABLE
   get Scratch db Scratch
+  select Scratch Inbound Scratch 0
   sbn LEDDisplay3 TypeDisplay Setting Scratch
 
   add Scratch WeatherState STATE_TABLE
@@ -141,6 +141,7 @@ force_init_display:
 
   or Scratch2 Scratch2 STR_TIME                               ; Bitwise-OR the "m  s" text into the display overtop of the \00 characters from M/S strings
 
+  select Scratch2 Inbound Scratch2 0
   sbn LEDDisplay3 TimeDisplay Setting Scratch2                ; and write to large LCD
 
   j ra

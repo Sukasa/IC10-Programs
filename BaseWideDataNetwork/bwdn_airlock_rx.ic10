@@ -1,0 +1,40 @@
+include bdwn_table.ic10
+  define BWDN_OS_MODE 1
+  define BWDN_EventClass Calc(BWDN_DoorPacket)
+
+include bwdn_netchannels_synchronized.ic10
+
+
+  define  LEDDisplay2     Hash("ModularDeviceLEDdisplay2")
+
+init_sub:
+  poke 99  Color.Red
+  poke 100 STR("X   X")
+  poke 101 Color.Yellow
+  poke 102 STR("<   X")
+  poke 103 Color.Yellow
+  poke 104 STR("X   >")
+  poke 105 Color.Green
+  poke 106 STR("<   >")
+  j ra
+
+get_tx_packet_sub:
+  j no_tx
+
+rx_packet_sub:
+  pop BWDNScratch
+  ext BWDNScratch2 BWDNScratch 2 32
+  sub BWDNScratch2 BWDNScratch2 $80000000
+  ext BWDNScratch BWDNScratch 0 2
+  mul BWDNScratch BWDNScratch 2
+  add BWDNScratch BWDNScratch 100
+
+  sbn LEDDisplay2 BWDNScratch2 Mode 10
+
+  get r1 db BWDNScratch
+  sub BWDNScratch BWDNScratch 1
+  sbn LEDDisplay2 BWDNScratch2 Setting r1
+  get r1 db BWDNScratch
+  sbn LEDDisplay2 BWDNScratch2 Color r1
+
+  j ra

@@ -1,0 +1,54 @@
+include bdwn_table.ic10
+
+define BWDN_OS_MODE 1
+define BWDN_EventClass Calc(BWDN_ElevPacket)
+
+include bwdn_netchannels_synchronized.ic10
+
+  define  LabelDiode2     Hash("ModularDeviceLabelDiode2")
+  alias   OldLevel r0
+  alias   NewLevel r1
+
+init_sub:
+  move BWDNScratch -1
+  move sp 100
+  lb BWDNRXCount LabelDiode2 PrefabHash Sum
+
+_prefab_search_loop:
+  beqz BWDNRXCount end_search
+  add BWDNScratch BWDNScratch 1
+  get BWDNScratch2 db:0 BWDNScratch
+  l r0 BWDNScratch2 PrefabHash
+  bne r0 LabelDiode2 _prefab_search_loop
+  sub BWDNRXCount BWDNRXCount LabelDiode2
+  l r0 BWDNScratch2 NameHash
+  bne r0 Hash("Elevator") _prefab_search_loop
+  push BWDNScratch2
+  s BWDNScratch2 On 0
+  s BWDNScratch2 Color Color.Black
+  j _prefab_search_loop
+end_search:
+  move sp 0
+  j ra
+
+get_tx_packet_sub:
+  j no_tx
+
+rx_packet_sub:
+  pop BWDNScratch
+  ext NewLevel BWDNScratch 0 5
+  div NewLevel NewLevel 4
+  add NewLevel NewLevel 0.5
+  floor NewLevel NewLevel
+  add NewLevel NewLevel 100
+  get NewLevel db NewLevel
+
+  beq NewLevel OldLevel ra
+  bdns OldLevel no_clear
+  s OldLevel On 0
+  s OldLevel Color Color.Black
+no_clear:
+  s NewLevel On 1
+  s NewLevel Color Color.White
+  move OldLevel NewLevel
+  j ra

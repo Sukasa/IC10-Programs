@@ -1,0 +1,68 @@
+include bdwn_table.ic10
+
+define BWDN_OS_MODE 1
+define BWDN_EventClass Calc(BWDN_AtmosPacket)
+
+include bwdn_netchannels_synchronized.ic10
+
+  define PipeAnalyzer Hash("StructurePipeAnalysizer")
+  define Filtration Hash("StructureFiltration")
+
+  alias LoopIdx r0
+  alias DevId r1
+  alias Reading r2
+
+init_sub:
+  move BWDNScratch -1
+  move sp 100
+  lb BWDNRXCount PipeAnalyzer PrefabHash Sum
+
+_prefab_search_loop:
+  add BWDNScratch BWDNScratch 1
+  get BWDNScratch2 db:0 BWDNScratch
+  l r0 BWDNScratch2 PrefabHash
+  bne r0 PipeAnalyzer _prefab_search_loop
+  sub BWDNRXCount BWDNRXCount PipeAnalyzer
+  push BWDNScratch2
+  bnez BWDNRXCount _prefab_search_loop
+  push 0
+  move sp 0
+  move LoopIdx 0
+  j ra
+
+get_tx_packet_sub:
+  bgt BWDNRXCount 5 no_tx
+  add LoopIdx LoopIdx 1
+  add DevId LoopIdx 99
+  get DevId db DevId
+  beqz DevId end_list
+
+  l Reading DevId NameHash
+  add Reading Reading 0x80000000
+  sll BWDNScratch Reading 16
+  l Reading DevId Pressure
+  div Reading Reading 705
+  floor Reading Reading
+  ins BWDNScratch Reading 10 6
+  l Reading DevId NameHash
+  lbn DevId Filtration Reading ReferenceId Sum
+  bdns DevId no_filtration
+  ls Reading DevId 0 Quantity
+  div Reading Reading 3.225806452
+  s db Setting Reading
+  floor Reading Reading
+  ins BWDNScratch Reading 0 5
+  ls Reading DevId 1 Quantity
+  div Reading Reading 3.225806452
+  floor Reading Reading
+  ins BWDNScratch Reading 5 5
+no_filtration:
+  j ra
+
+end_list:
+  move LoopIdx 0
+  j no_tx
+
+rx_packet_sub:
+  move sp 0
+  j ra
