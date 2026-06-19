@@ -89,7 +89,7 @@ section definitions
 
   ; Controls
   define  CtrlRecipePrevious        Hash("Previous Recipe")
-  define  CtrlReceipeNext           Hash("Next Recipe")
+  define  CtrlRecipeNext            Hash("Next Recipe")
   define  CtrlHotGasValve           Hash("Hot Gas Valve")
   define  CtrlColdGasValve          Hash("Cold Gas Valve")
   define  CtrlBlanketHeater         Hash("Blanket Heater")
@@ -122,6 +122,7 @@ section definitions
   alias   Scratch4                  r3
 
   alias   MasterDevice              r15
+  alias   RecipeDevice              r14
   alias   DisplayDevice             r14
   alias   CurrentMode               r13
   alias   FurnaceRefId              r12
@@ -131,7 +132,7 @@ section definitions
   define  NUM_RECIPES               1 ; Number of valid recipes
 
   define  UI_TEMP_SPAN              Calc(75/2400) ; = 75 k / Temperature gauge scale
-  define  UI_CHBR_SPAN              Calc(50/60000) ; = 100 kPA / Temperature gauge scale
+  define  UI_CHBR_SPAN              Calc(50/60000) ; = 50 kPA / Temperature gauge scale
 
   define  UI_SP_BLANKET_GAUGE       190 ; Blanket Pressure kPa
   define  UI_SP_BLANKET_TANK_GAUGE  180 ; Blanket Tank PRessure kPa
@@ -157,7 +158,7 @@ section definitions
   define  UI_SP_MODE_STRINGS        110
   define  UI_SP_MODE_COLORS         100
 
-  define  RECIPE_STRIDE             11
+  define  RECIPE_STRIDE             15
 
   define  UI_SP_REAGENT_NAMES       430
   define  REAGENT_MODULUS_1         26267
@@ -200,13 +201,17 @@ section definitions
   define  RECIPE_OFFSET_RESULT      1
   define  RECIPE_OFFSET_TEMP_SP     2
   define  RECIPE_OFFSET_PRES_SP     3
-  define  RECIPE_OFFSET_REAGENT1    4
-  define  RECIPE_OFFSET_QUANTITY1   5
-  define  RECIPE_OFFSET_REAGENT2    6
-  define  RECIPE_OFFSET_QUANTITY2   7
-  define  RECIPE_OFFSET_REAGENT3    8
-  define  RECIPE_OFFSET_QUANTITY3   9
-  define  RECIPE_OFFSET_TERMINATOR  10
+  define  RECIPE_OFFSET_TEMP_HI     4
+  define  RECIPE_OFFSET_TEMP_LO     5
+  define  RECIPE_OFFSET_PRES_HI     6
+  define  RECIPE_OFFSET_PRES_LO     7
+  define  RECIPE_OFFSET_REAGENT1    8
+  define  RECIPE_OFFSET_QUANTITY1   9
+  define  RECIPE_OFFSET_REAGENT2    10
+  define  RECIPE_OFFSET_QUANTITY2   11
+  define  RECIPE_OFFSET_REAGENT3    12
+  define  RECIPE_OFFSET_QUANTITY3   13
+  define  RECIPE_OFFSET_TERMINATOR  14
 
 
   define  RECIPE_STRIDE_REAGENT     2 ; Stride between reagent entries

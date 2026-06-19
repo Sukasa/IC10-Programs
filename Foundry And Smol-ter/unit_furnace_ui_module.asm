@@ -25,22 +25,20 @@ ui_loop:
 
   ; Update temperature gauge happy point based on current recipe
   get Scratch MasterDevice MSTR_SP_CURRENT_RECIPE
-  add Scratch Scratch RECIPE_OFFSET_TEMP_SP
-  get Scratch MasterDevice Scratch
-  div Scratch Scratch 2400
-  add Scratch2 Scratch UI_TEMP_SPAN
+  add Scratch Scratch RECIPE_OFFSET_TEMP_HI
+  get Scratch2 RecipeDevice Scratch
   poke UI_SP_TEMP_HIGH_OK_BOUND Scratch2
-  sub Scratch2 Scratch UI_TEMP_SPAN
+  add Scratch Scratch 1
+  get Scratch2 RecipeDevice Scratch
   poke UI_SP_TEMP_LOW_OK_BOUND Scratch2
 
   ; Update Chamber Pressure gauge happy point based on current recipe
   get Scratch MasterDevice MSTR_SP_CURRENT_RECIPE
-  add Scratch Scratch RECIPE_OFFSET_PRES_SP
-  get Scratch MasterDevice Scratch
-  div Scratch Scratch 60000
-  add Scratch2 Scratch UI_CHBR_SPAN
+  add Scratch Scratch RECIPE_OFFSET_PRES_HI
+  get Scratch2 RecipeDevice Scratch
   poke UI_SP_CHBR_HIGH_OK_BOUND Scratch2
-  sub Scratch2 Scratch UI_CHBR_SPAN
+  add Scratch Scratch 1
+  get Scratch2 RecipeDevice Scratch
   poke UI_SP_CHBR_LOW_OK_BOUND Scratch2
 
   ; Gas Line gauges
@@ -140,7 +138,7 @@ ui_loop:
 
   ; Recipe Indicator
   get Scratch MasterDevice MSTR_SP_CURRENT_RECIPE
-  get Scratch MasterDevice Scratch
+  get Scratch RecipeDevice Scratch
   sbn LEDDisplay3 AlloyDisplay Setting Scratch
   sbn LEDDisplay3 AlloyDisplay Color Color.White
 

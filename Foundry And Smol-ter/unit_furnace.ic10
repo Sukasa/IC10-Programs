@@ -28,6 +28,7 @@ macro reagent_name ReagentCode ReagentNameVal
 endmacro
 
   lbn MasterDevice ICHousingCompact MasterChip ReferenceId Sum
+  lbn RecipeDevice ICHousingCompact RecipeChip ReferenceId Sum
 
   sb LEDDisplay3 Mode CONSOLE_TEXT
 
@@ -94,9 +95,9 @@ endmacro
   poke Calc(UI_SP_TEMPERATURE_GAUGE-2) 0.5
   poke Calc(UI_SP_TEMPERATURE_GAUGE-3) Color.Red
   poke Calc(UI_SP_TEMPERATURE_GAUGE-4) 0.25
-  poke Calc(UI_SP_TEMPERATURE_GAUGE-5) Color.Yellow
+  poke Calc(UI_SP_TEMPERATURE_GAUGE-5) Color.Green
   poke Calc(UI_SP_TEMPERATURE_GAUGE-6) 0
-  poke Calc(UI_SP_TEMPERATURE_GAUGE-7) Color.Green
+  poke Calc(UI_SP_TEMPERATURE_GAUGE-7) Color.Blue
 
   ; Chamber Pressure gauge
   poke Calc(UI_SP_CHAMBER_GAUGE-1) 60000
@@ -144,28 +145,6 @@ endmacro
   push Color.Blue
   push Color.Red
   push Color.Orange
-
-
-
-section master_controller requires definitions
-
-  ; Init selected recipe and system state
-  poke MSTR_SP_CURRENT_RECIPE MSTR_SP_RECIPE_TABLE
-  poke MSTR_SP_CHAMBER_STATE CHAMBER_IDLE
-  poke MSTR_SP_LOAD_STATE LOAD_INCOMPLETE
-
-
-  ; Startup: set recipe on network to current values
-
-  ; Check local/remote mode
-
-  ; In Local mode, run controls and change selected recipe, take big button as start command
-
-  ; In remote mode, take selected recipe and start command from network
-
-  ; When running, track chamber and load states and let the equipment do its thing
-
-  ; Abort if commanded and/or load fails.  Dump if load succeeds and chamber is at SP
 
 section equipment_controller requires definitions
 

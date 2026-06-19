@@ -1,0 +1,39 @@
+include unit_furnace_definitions.asm
+
+section control_module requires definitions
+
+  ; Init selected recipe and system state
+  poke MSTR_SP_CURRENT_RECIPE MSTR_SP_RECIPE_TABLE
+  poke MSTR_SP_CHAMBER_STATE CHAMBER_IDLE
+  poke MSTR_SP_LOAD_STATE LOAD_INCOMPLETE
+  lbn RecipeDevice ICHousingCompact RecipeChip ReferenceId Sum
+
+
+  ; Startup: set recipe on network to current values
+
+  ; Check local/remote mode
+loop:
+  yield
+  lb Scratch BigLever Setting Sum
+  beqz Scratch mode_remote
+  ; In Local mode, run controls and change selected recipe, take big button as start command
+
+mode_local:
+  lbn Scratch PushButtonSquare CtrlRecipeNext Setting Sum
+  lbn Scratch2 PushButtonSquare CtrlRecipePrevious Setting Sum
+  sub Scratch Scratch Scratch2
+  mul Scratch Scratch RECIPE_STRIDE
+  get Scratch2 db MSTR_SP_CURRENT_RECIPE
+  add Scratch2 Scratch Scratch2
+  sub Scratch2 Scratch2 MSTR_SP_RECIPE_TABLE
+  mod Scratch2 Scratch2 Calc(10*RECIPE_STRIDE)
+  add Scratch2 Scratch2 MSTR_SP_RECIPE_TABLE
+  poke MSTR_SP_CURRENT_RECIPE Scratch2
+  j loop
+
+  ; In remote mode, take selected recipe and start command from network
+mode_remote:
+  j loop
+  ; When running, track chamber and load states and let the equipment do its thing
+
+  ; Abort if commanded and/or load fails.  Dump if load succeeds and chamber is at SP

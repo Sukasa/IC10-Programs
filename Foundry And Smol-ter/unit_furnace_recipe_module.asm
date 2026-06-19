@@ -1,13 +1,15 @@
 include unit_furnace_definitions.asm
 
-section recipe_initializer requires definitions
-
-macro recipe index NameStr ResultHash TempSP PresSP
+macro recipe index NameStr ResultHash TempSP PresSP TempLo TempHi PresLo PresHi
   define  TABLE_OFFSET Calc(index*RECIPE_STRIDE+MSTR_SP_RECIPE_TABLE)
   poke TABLE_OFFSET NameStr
   poke Calc(TABLE_OFFSET+RECIPE_OFFSET_RESULT) ResultHash
   poke Calc(TABLE_OFFSET+RECIPE_OFFSET_TEMP_SP) TempSP
   poke Calc(TABLE_OFFSET+RECIPE_OFFSET_PRES_SP) PresSP
+  poke Calc(TABLE_OFFSET+RECIPE_OFFSET_TEMP_HI) Calc(TempHi/2400)
+  poke Calc(TABLE_OFFSET+RECIPE_OFFSET_TEMP_LO) Calc(TempLo/2400)
+  poke Calc(TABLE_OFFSET+RECIPE_OFFSET_PRES_HI) Calc(PresHi/60000)
+  poke Calc(TABLE_OFFSET+RECIPE_OFFSET_PRES_LO) Calc(PresLo/60000)
   poke Calc(TABLE_OFFSET+RECIPE_OFFSET_TERMINATOR) 0
 endmacro
 
@@ -21,6 +23,8 @@ macro simple_recipe index
   define  TABLE_OFFSET Calc(index*RECIPE_STRIDE+MSTR_SP_RECIPE_TABLE)
   poke Calc(2*RECIPE_STRIDE_REAGENT+TABLE_OFFSET+RECIPE_OFFSET_REAGENT1) 0
 endmacro
+
+section recipe_initializer_1 requires definitions
 
   move sp RCP_SP_REAGENT_TABLE
   push ReagentCoal
@@ -43,52 +47,54 @@ endmacro
   push ReagentHastelloy
   push ReagentAstroloy
 
-  recipe 0 Str("Steel") Hash("ItemSteelIngot") 1000 1100
+  recipe 0 Str("Steel") Hash("ItemSteelIngot") 1000 1100 900 100000 1000 100000
   recipe_reagent 0 0 ReagentCoal 0.25
   recipe_reagent 0 1 ReagentIron 0.75
   simple_recipe 0
 
-  recipe 1 Str("Solder") Hash("ItemSolderIngot") 425 1100
+  recipe 1 Str("Solder") Hash("ItemSolderIngot") 425 1100 350 550 1000 100000
   recipe_reagent 1 0 ReagentLead 0.5
   recipe_reagent 1 1 ReagentIron 0.5
   simple_recipe 1
 
-  recipe 2 Str("Invar") Hash("ItemInvarIngot") 1250 19000
+  recipe 2 Str("Invar") Hash("ItemInvarIngot") 1250 19000 1200 1500 18000 20000
   recipe_reagent 2 0 ReagentNickel 0.5
   recipe_reagent 2 1 ReagentIron 0.5
   simple_recipe 2
 
-  recipe 3 Str("Elctrm") Hash("ItemElectrumIngot") 700 1200
+  recipe 3 Str("Elctrm") Hash("ItemElectrumIngot") 700 1200 600 100000 800 2400
   recipe_reagent 3 0 ReagentSilver 0.5
   recipe_reagent 3 1 ReagentGold 0.5
   simple_recipe 3
 
-  recipe 4 Str("Cstntn") Hash("ItemConstantanIngot") 1100 21000
+section recipe_initializer_2 requires definitions
+
+  recipe 4 Str("Cstntn") Hash("ItemConstantanIngot") 1100 21000 1000 100000 20000 100000
   recipe_reagent 4 0 ReagentNickel 0.5
   recipe_reagent 4 1 ReagentCopper 0.5
   simple_recipe 4
 
-  recipe 5 Str("Wspaly") Hash("ItemWaspaloyIngot") 600 51000
+  recipe 5 Str("Wspaly") Hash("ItemWaspaloyIngot") 600 51000 400 800 50000 100000
   recipe_reagent 5 0 ReagentSilver 0.25
   recipe_reagent 5 1 ReagentNickel 0.25
   recipe_reagent 5 2 ReagentLead 0.5
 
-  recipe 6 Str("Stllte") Hash("ItemStelliteIngot") 1850 11000
+  recipe 6 Str("Stllte") Hash("ItemStelliteIngot") 1850 11000 1800 100000 10000 20000
   recipe_reagent 6 0 ReagentSilver 0.25
   recipe_reagent 6 1 ReagentSilicon 0.5
   recipe_reagent 6 2 ReagentCobalt 0.25
 
-  recipe 7 Str("Incnl") Hash("ItemInconelIngot") 700 23750
+  recipe 7 Str("Incnl") Hash("ItemInconelIngot") 700 23750 600 100000 23500 24000
   recipe_reagent 7 0 ReagentNickel 0.25
   recipe_reagent 7 1 ReagentGold 0.5
   recipe_reagent 7 2 ReagentSteel 0.25
 
-  recipe 8 Str("Hstlly") Hash("ItemHastelloyIngot") 1050 27500
+  recipe 8 Str("Hstlly") Hash("ItemHastelloyIngot") 1050 27500 950 1000 25000 30000
   recipe_reagent 8 0 ReagentSilver 0.5
   recipe_reagent 8 1 ReagentNickel 0.25
   recipe_reagent 8 2 ReagentCobalt 0.25
 
-  recipe 9 Str("Astrly") Hash("ItemAstroloyIngot") 1100 35000
+  recipe 9 Str("Astrly") Hash("ItemAstroloyIngot") 1100 35000 1000 100000 30000 40000
   recipe_reagent 9 0 ReagentCopper 0.25
   recipe_reagent 9 1 ReagentCobalt 0.25
   recipe_reagent 9 2 ReagentSteel 0.5
@@ -121,7 +127,6 @@ idle_loop: ; Wait for the chamber to leave the CHAMBER_IDLE state
   ; Move into active mode: note current recipe reagent state
   get RecipeReagentsAddr MasterDevice MSTR_SP_CURRENT_RECIPE
   add ExpectedReagentCount RecipeReagentsAddr RECIPE_OFFSET_REAGENT3 ; Initialize to Reagent 3
-  add RecipeReagentsAddr RecipeReagentsAddr RECIPE_OFFSET_REAGENT1 ; And update reagents addr for later
 
   get ExpectedReagentCount MasterDevice ExpectedReagentCount ; And check if there is a third reagent
   select ExpectedReagentCount ExpectedReagentCount RECIPE_OFFSET_TERMINATOR RECIPE_OFFSET_REAGENT3 ; Then select the appropriate offset for the end of the reagent list
