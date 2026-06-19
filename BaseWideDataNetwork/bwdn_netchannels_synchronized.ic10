@@ -13,9 +13,10 @@
   ;define BWDN_OS_MODE ; Define this if including this in another file to operate this code as an OS calling a network daemon [get_tx_packet_sub] and [rx_packet_sub]
 
   ; Unreserved registers, which can be overwritten by application code
-  ; regs r0-r11 - these will be preserved by the OS
+  ; regs r0-r10 - these will be preserved by the OS
 
   ; The following are not preserved by the OS code
+  alias BWDNRXCount               r11 ; Set during receive, useful in get_tx_packet_sub to help rate-limiting and prioritization
   alias BWDNScratch2              r12
   alias BWDNScratch               r13
 
@@ -46,6 +47,7 @@ init_done:
 main_loop:
   yield
   l BWDNWritePtr BWDN_Upstream_Net BWDN_WritePtr
+  move BWDNRXCount 0
   bapz BWDNWritePtr 1 rx_loop
   s BWDN_Upstream_Net BWDN_WritePtr LogicType.Channel0
   move BWDNReadPtr LogicType.Channel0
@@ -56,6 +58,7 @@ rx_loop:
   l BWDNScratch BWDN_Upstream_Net BWDNReadPtr
   mod BWDNReadPtr BWDNReadPtr BWDN_BufferSize ; Then increment buffer pointer to the next read position
   add BWDNReadPtr BWDNReadPtr BWDN_Transit
+  add BWDNRXCount BWDNRXCount 1
   ext BWDNScratch2 BWDNScratch BWDN_MessageSize BWDN_HeaderSize ; Check the received packet type to see if we should process it
   bne BWDNScratch2 BWDN_EventClass rx_loop ; If not, check next buffer packet
   ext BWDNScratch BWDNScratch 0 BWDN_MessageSize ; Otherwise extract packet data
@@ -68,9 +71,9 @@ endif
 rx_done: ; Finished receiving.
 
 ifdef BWDN_OS_MODE
-  jal get_tx_packet_sub
+  jal get_tx_packet_sub ; Implement in client code.  j ra to send a packet, j no_tx to not send a packet
 else
-  l BWDNScratch BWDN_Downstream_Net BWDN_TXChannel
+  l BWDNScratch BWDN_Downstream_Net BWDN_TXChannel ; See if there is a packet to send (in the 'outbox' channel of the data-port network)
   bnan BWDNScratch no_tx
 endif
 
