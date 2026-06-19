@@ -36,6 +36,8 @@
   define  C2Dump          $C2241
   define  WasteDump       $C222E
   define  Accelerator     $3C9FB1
+  define  Scavenger2      $40B52B
+  define  Scavenger3      $40A898
 
   define  Heater1         $766A0
   define  Heater2         $766A4
@@ -53,10 +55,10 @@
   define  MAX_MIX_PRES    10000                   # 10MPa in kPa - Maximum premix tank pressure
   define  MIN_TANK_PRES   5000                    # 5MPa in kPa  - Minimum pure gas tank pressure to enable mixers
 
-  define  SCAV_WASTE_MAX  15000
+  define  SCAV_WASTE_MAX  25000
 
-  define  FILTSTARTPRES   15000
-  define  FILTSTOPPRES    5000
+  define  FILTSTARTPRES   25000
+  define  FILTSTOPPRES    10000
   
   define  BA_PRES_SP      2100
 
@@ -170,6 +172,8 @@ loop:
   slt Scratch2 Scratch1 SCAV_WASTE_MAX
   and Scratch3 Scratch2 Scratch3
   s Scavenger On Scratch3
+  s Scavenger2 On Scratch3
+  s Scavenger3 On Scratch3
 
   l Scratch1 CO2Filter PressureInput
   slt Scratch1 Scratch1 40000
