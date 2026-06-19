@@ -14,7 +14,6 @@ include bwdn_netchannels_synchronized.ic10
 
   define  GasSensor                 Hash("StructureGasSensor")
   define  OccupancySensor           Hash("StructureOccupancySensor")
-  define  LEDDisplay2               Hash("ModularDeviceLEDdisplay2")
 
 init_sub:
   yield
