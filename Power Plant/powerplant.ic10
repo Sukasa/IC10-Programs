@@ -108,13 +108,6 @@ main_loop:
   sbn LEDDisplay2 Hash("Dirty Ore Batch Size") Mode 0
   sb Stacker Setting scratch
 
-  ; First process the splitters feeding into the centrifuges
-  ; We check if these are all BYPASSING (0).  If so, we set them all to DIVERTING (1).  They'll reset to BYPASSING as they feed dirty ore batches into the centrifuges
-  lb scratch CentSplitter Mode Maximum
-  bnez scratch no_reset
-  sb CentSplitter Mode 1
-
-no_reset:
   lb any_drills DeepMiner Power Maximum
   sb CentSplitter On any_drills
 
