@@ -21,7 +21,7 @@ include bwdn_netchannels_synchronized.ic10
   define  STATE_TABLE     85
   define  TYPES_TABLE     90
   define  MINUTES_TABLE   100
-  define  SECONDS_TABLE   110
+  define  SECONDS_TABLE   200
   define  DAY_TABLE       80
 
 
