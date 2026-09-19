@@ -163,13 +163,13 @@ search_loop:
 
   move sp SP_REAGENTS_TABLE
   push Hash("Iron")
-  push Hash("Silicon")
   push Hash("Copper")
   push Hash("Gold")
   push Hash("Steel")
   poke SP_REAGENTS sp
 
 section toolmaker_init requires common_init
+  push Hash("Silicon")
   push Hash("Invar")
   push Hash("Stellite")
   push Hash("Hastelloy")
@@ -181,6 +181,7 @@ section toolmaker_init requires common_init
   poke SP_REAGENTS sp
 
 section autolathe_init requires common_init
+  push Hash("Silicon")
   push Hash("Solder")
   push Hash("Electrum")
   push Hash("Constantan")
@@ -189,6 +190,7 @@ section autolathe_init requires common_init
   poke SP_REAGENTS sp
 
 section bender_init requires common_init
+  push Hash("Silicon")
   push Hash("Silver")
   push Hash("Electrum")
   push Hash("Constantan")
@@ -197,6 +199,7 @@ section bender_init requires common_init
   poke SP_REAGENTS sp
 
 section electro_init requires common_init
+  push Hash("Silicon")
   push Hash("Electrum")
   push Hash("Constantan")
   push Hash("Solder")
@@ -207,6 +210,15 @@ section electro_init requires common_init
   push Hash("Silver")
   poke SP_REAGENTS sp
 
+section rocket_init requires common_init
+  push Hash("Steel")
+  push Hash("Copper")
+  push Hash("Gold")
+  push Hash("Invar")
+  push Hash("Electrum")
+  push Hash("Constantan")
+  push Hash("Solder")
+  poke SP_REAGENTS sp
 
 section application requires definitions
 
