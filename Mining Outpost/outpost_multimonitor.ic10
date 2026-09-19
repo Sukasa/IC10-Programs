@@ -1,0 +1,275 @@
+section definitions
+  define  LabelCoal                 Hash("Coal")
+  define  LabelSilver               Hash("Silver")
+  define  LabelSilicon              Hash("Silicon")
+  define  LabelNickel               Hash("Nickel")
+  define  LabelLead                 Hash("Lead")
+  define  LabelIron                 Hash("Iron")
+  define  LabelGold                 Hash("Gold")
+  define  LabelCopper               Hash("Copper")
+  define  LabelCobalt               Hash("Cobalt")
+
+  define  ItemCoal                  Hash("ItemCoalOre")
+  define  ItemSilver                Hash("ItemSilverIngot")
+  define  ItemSilicon               Hash("ItemSiliconIngot")
+  define  ItemNickel                Hash("ItemNickelIngot")
+  define  ItemLead                  Hash("ItemLeadIngot")
+  define  ItemIron                  Hash("ItemIronIngot")
+  define  ItemGold                  Hash("ItemGoldIngot")
+  define  ItemCopper                Hash("ItemCopperIngot")
+  define  ItemCobalt                Hash("ItemCobaltOre")
+
+  define  LEDDisplay2               Hash("ModularDeviceLEDdisplay2")
+  define  LEDDisplay3               Hash("ModularDeviceLEDdisplay3")
+  define  LabelDiode2               Hash("ModularDeviceLabelDiode2")
+  define  LabelDiode3               Hash("ModularDeviceLabelDiode3")
+  define  LightDiodeSmall           Hash("ModularDeviceLightSmall")
+
+  define  INGOT_BASE_MODULUS        2383201
+  define  INGOT_NETWORK_MODULUS     8
+  define  LABEL_MODULUS             21
+
+  define  PKT_AVGCHARGE             0 ; Average battery ratio (charge %), scaled 0-255
+  define  PKT_SUMPOWER              1 ; Sum power use, in watts
+  define  PKT_ALARMS                2 ; Alarm flags (bit packed)
+  define  PKT_UTILIZATION           3 ; Number of active centrifuges
+  define  PKT_FLAGS                 4 ; Non-alarm Status flags (bit packed)
+  define  PACKET_TYPE_COUNT         5 ; How many packet types we have
+
+  define  ALMIDX_LOW_BATTERY        0 ; Battery power low (< 30% average)
+  define  ALMIDX_GEN_WD             1 ; Generator watchdog (no power production within 800 ticks)
+  define  ALMIDX_DRILL_OFF          2 ; Drill is off
+  define  ALMIDX_CIRCUIT_OFF        3 ; One or more trains is offline
+  define  ALMIDX_CPU_FAIL           4 ; Main controller fault
+
+  define  FLAGIDX_GENERATOR         6 ; Generator Run Status
+  define  FLAGIDX_SILOFULL          7 ; Silo Full Flag
+
+  define  SP_DATA_BUFFER_TABLE      10
+  define  DATA_BUFFER_STRIDE        Calc(INGOT_NETWORK_MODULUS+PACKET_TYPE_COUNT)
+
+  define  SP_RADIO_HEALTH           0
+
+  define  SP_RADIO_TABLE            100
+  define  RADIO_TABLE_STRIDE        2 ; 1 entry for last received, 1 entry for timer
+  define  RADIO_TABLE_COUNT         6 ; 6 radios
+  define  SP_RADIO_TABLE_END        Calc(RADIO_TABLE_STRIDE*RADIO_TABLE_COUNT+SP_RADIO_TABLE)
+
+  alias   Scratch                   r9
+  alias   Scratch2                  r10
+  alias   Scratch3                  r11
+  alias   Scratch4                  r12
+
+  alias   TablePointer              r13
+  alias   RadioHealth               r14
+  alias   Receiver                  dr15
+  alias   ReceiverIdx               r15
+
+  alias   Alarms                    r13
+  alias   LastScrollId              r14
+  alias   ScrollTimer               r15
+
+  define  SP_STATUSIND_TABLE        10
+  define  SP_STATUSIND_TABLE_END    Calc(SP_STATUSIND_TABLE+6)
+  define  SP_STATUS_NAME_TABLE      20
+  define  SP_STATUS_NAME_TABLE_END  Calc(INGOT_NETWORK_MODULUS+SP_STATUS_NAME_TABLE)
+
+  define  SP_ALARMTABLE             30 ; Table for alarm label diode name hashes
+
+  define  SP_LABEL_TABLE            50
+  define  SP_LABEL_TABLE_END        Calc(INGOT_NETWORK_MODULUS+SP_LABEL_TABLE)
+
+section radio_receiver requires definitions
+  alias   FCStock                   d0
+  alias   FCStatus                  d1
+  alias   TaosStock                 d2
+  alias   TaosStatus                d3
+  alias   DavisStock                d4
+  alias   DavisStatus               d5
+
+loop:
+  yield
+
+  ; Process radio data
+  move ReceiverIdx 5
+  move sp SP_RADIO_TABLE_END
+  move TablePointer SP_DATA_BUFFER_TABLE
+  poke SP_RADIO_HEALTH RadioHealth
+
+rx_loop:
+
+  ; read status
+  l Scratch Receiver Setting
+  jal check_radio
+
+  ext Scratch2 Scratch 0 8
+  srl Scratch Scratch 8
+  add Scratch2 Scratch2 TablePointer ; Add table pointer + offset past stock table
+  add Scratch2 Scratch2 INGOT_NETWORK_MODULUS
+  poke Scratch2 Scratch ; Store status information
+
+  sub ReceiverIdx ReceiverIdx 1
+
+  ; Read stock
+  l Scratch Receiver Setting
+  jal check_radio
+
+  ; Now store the ingot quantity to the stock table
+  ext Scratch2 Scratch 0 22
+  srl Scratch Scratch 22
+  mod Scratch2 Scratch2 INGOT_NETWORK_MODULUS
+  add Scratch2 Scratch2 TablePointer
+  poke Scratch2 Scratch
+
+  sub ReceiverIdx ReceiverIdx 1
+  add TablePointer TablePointer DATA_BUFFER_STRIDE
+  bgtz ReceiverIdx rx_loop
+
+  j loop
+
+check_radio:
+  pop Scratch2
+  sne Scratch2 Scratch Scratch2
+  poke sp Scratch
+  pop Scratch3
+  add Scratch3 Scratch3 1
+  select Scratch2 Scratch2 0 Scratch3
+  poke sp Scratch2
+  sle Scratch2 Scratch2 5
+  ins RadioHealth Scratch2 ReceiverIdx 1
+  j ra
+
+
+;####################
+
+section user_interface requires definitions
+  alias   MainChip                  d0
+
+macro Indicator RefId Index
+  poke Calc(Index+SP_STATUSIND_TABLE) RefId
+endmacro
+
+macro StatusName RefId Index
+  poke Calc(Index+SP_STATUS_NAME_TABLE) RefId
+endmacro
+
+macro alarm AlmIdx NameHash Color
+  poke CALC(2*AlmIdx+SP_ALARMTABLE+1) Color
+  poke CALC(2*AlmIdx+SP_ALARMTABLE) NameHash
+endmacro
+
+macro Label labelName forIngot
+  poke CALC(forIngot%INGOT_BASE_MODULUS%INGOT_NETWORK_MODULUS+SP_LABEL_TABLE) labelName
+endmacro
+
+  Indicator 4491202 0
+  Indicator 4491197 1
+  Indicator 4491194 2
+  Indicator 4491189 3
+  Indicator 4491214 4
+  Indicator 4491207 5
+
+  StatusName 4491608 0
+  StatusName 4491603 2
+  StatusName 4491597 1
+
+  Label LabelSilver ItemSilver
+  Label LabelSilicon ItemSilicon
+  Label LabelNickel ItemNickel
+  Label LabelLead ItemLead
+  Label LabelIron ItemIron
+  Label LabelGold ItemGold
+  Label LabelCopper ItemCopper
+  Label LabelCobalt ItemCobalt
+
+  alarm ALMIDX_LOW_BATTERY Hash("LOW BATTERY") Color.Orange
+  alarm ALMIDX_GEN_WD Hash("NO GENERATION") Color.Red
+  alarm ALMIDX_DRILL_OFF Hash("DRILL STOPPED") Color.Yellow
+  alarm ALMIDX_CIRCUIT_OFF Hash("CIRCUIT DOWN") Color.Orange
+  alarm ALMIDX_CPU_FAIL Hash("CONTROLLER FAIL") Color.Red
+
+  alarm FLAGIDX_GENERATOR Hash("Generator") Color.Green
+  alarm FLAGIDX_SILOFULL Hash("SILO IS FULL") Color.Yellow
+
+  ; Looping: 2 cycles
+ui_loop:
+  yield
+
+  ; Alarms scroller: many cycles (flags are expensive)
+  select ScrollTimer ScrollTimer ScrollTimer 24
+  sub ScrollTimer ScrollTimer 1
+  srl Scratch ScrollTimer 3
+
+  add Scratch2 Scratch SP_STATUS_NAME_TABLE
+  get Scratch2 db Scratch2
+  beq Scratch2 LastScrollId update_status_indicators
+  bdns LastScrollId no_clear
+  s LastScrollId Color Color.Black
+no_clear:
+  s Scratch2 Color Color.Khaki
+  move LastScrollId Scratch2
+
+  mul Scratch Scratch DATA_BUFFER_STRIDE
+  add Scratch Scratch Calc(SP_DATA_BUFFER_TABLE)
+
+  move Scratch4 SP_LABEL_TABLE
+qty_loop:
+  get Scratch2 db Scratch4 ; Scratch2 = LabelNameHash, Scratch4 = Table Offset
+  get Scratch3 MainChip Scratch  ; Scratch3 = Quantity
+  sbn LEDDisplay3 Scratch2 Setting Scratch3
+  select Scratch3 Scratch3 Color.White Color.Black
+  sbn LEDDisplay3 Scratch2 Color Scratch3
+  add Scratch Scratch 1 ; Loop Scratch through the data buffer offset
+  add Scratch4 Scratch4 1
+  blt Scratch4 SP_LABEL_TABLE_END qty_loop
+
+  get Scratch2 MainChip Scratch ; Scratch2 = Battery Charge
+  div Scratch2 Scratch2 256
+  sbn LEDDisplay2 Hash("Battery Charge") Setting Scratch2
+  add Scratch Scratch 1
+
+  get Scratch2 MainChip Scratch ; Sum power use, in watts
+  div Scratch2 Scratch2 256
+  sbn LEDDisplay2 Hash("Power Draw") Setting Scratch2
+  add Scratch Scratch 1
+
+  get Alarms MainChip Scratch ; Alarms
+
+  add Scratch Scratch 1
+
+  get Scratch2 MainChip Scratch ; Sum power use, in watts
+  div Scratch2 Scratch2 256
+  sbn LEDDisplay2 Hash("Centrifuges Operating") Setting Scratch2
+  add Scratch Scratch 1
+
+  get Scratch2 MainChip Scratch ; Flags
+  sll Scratch2 Scratch2 6
+  or Alarms Alarms Scratch2
+
+  move Scratch 6
+ui_alarm_loop:
+  ext Scratch2 Alarms Scratch 1 ; Scratch2 = Alarm is active
+  mul sp Scratch 2
+  add sp sp Calc(SP_ALARMTABLE + 2)
+  pop Scratch3
+  pop Scratch4
+  select Scratch3 Scratch2 Scratch3 Color.Black
+  sbn LabelDiode2 Scratch4 Color Scratch3
+
+  sub Scratch Scratch 1
+  bgez Scratch ui_alarm_loop
+
+  j ui_loop
+
+update_status_indicators:
+  move sp SP_STATUSIND_TABLE_END
+  get Scratch3 MainChip SP_RADIO_HEALTH
+ind_loop:
+  pop Scratch
+  and Scratch2 1 Scratch3
+  srl Scratch3 Scratch3 1
+  select Scratch2 Scratch2 Color.Green Color.Red
+  s Scratch Color Scratch2
+  s Scratch On 1
+  bgt sp SP_STATUSIND_TABLE ind_loop
+  j ui_loop
