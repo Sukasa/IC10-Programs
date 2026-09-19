@@ -45,7 +45,7 @@ rx_packet_sub:
   floor Colour Colour
   add Colour SP_GAUGE_TABLE Colour
   get Colour db Colour
-  div Reading Reading 63
+  div Reading Reading Calc(63/45)
   sbn Meter Name Setting Reading
   sbn Meter Name Color Colour
   lbn Reading Bar Name ReferenceId Sum
