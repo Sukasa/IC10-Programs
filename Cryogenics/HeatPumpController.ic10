@@ -1,0 +1,188 @@
+section definitions
+  include HPC_Stack.ic10
+  include Devices.ic10
+
+  alias   Scratch         r0
+  alias   Scratch2        r1
+
+  alias   HighSpeed       r2
+  alias   CurrentSpeed    r3
+
+  alias   Enable          r4
+
+  alias   FlowMax         r5
+  alias   FlowMin         r6
+
+  alias   Scratch3        r7
+  alias   Scratch4        r8
+
+  define  T_0_C           273.15
+
+section application requires definitions
+
+  ; Load stack with defaults for all tuning parameters
+  poke SP_START 0
+  poke SP_S1MAX 30
+  poke SP_S1MIN 5
+  poke SP_S2MAX 60
+  poke SP_S2MIN 5
+  poke SP_S1RHSP Calc(T_0_C - 110)
+
+  poke SP_RAMPU 0.25
+  poke SP_RAMPD 5
+
+  move sp SP_STRTABLE
+  move Scratch4 STR(" 0 L/s")
+  move Scratch 0
+
+time_init_loop:
+  mod Scratch3 Scratch 10
+  add Scratch2 STR("0") Scratch3
+  ins Scratch4 Scratch2 32 8
+  blt Scratch 10 no_tens
+
+  div Scratch3 Scratch 10
+  trunc Scratch3 Scratch3
+  add Scratch2 STR("0") Scratch3
+  ins Scratch4 Scratch2 40 8
+
+no_tens:
+  push Scratch4
+  add Scratch Scratch 1
+  ble Scratch 100 time_init_loop
+
+loop:
+  yield
+
+  ; Take enable state from external control (written to this chip's stack)
+  get Enable db SP_START
+  sgtz Enable Enable
+
+  ; Select S1 speed type based on if condensate is hotter than the martian air
+  ; If not, go to slow mode and swap valves to minimize thermal reverse flow
+  lbn Scratch PipeAnalyzer EvapAir Temperature Sum
+  lbn Scratch2 PipeAnalyzer S1Condensate Temperature Sum
+  lbn CurrentSpeed TurboPump S1Compressor Setting Sum
+
+  ; Calculate High Speed mode, and tie in the enable control
+  slt HighSpeed Scratch Scratch2
+  seqz Scratch HighSpeed
+
+  select Scratch3 HighSpeed Str("Full") Str("S.Cool")
+  sbn LEDDisplay3 Hash("S1 Speed") Setting Scratch3
+  sbn LEDDisplay3 Hash("S1 Speed") Mode 10
+  sbn LEDDisplay3 Hash("S1 Speed") On Enable
+
+  and HighSpeed HighSpeed Enable
+  select Scratch Enable Scratch 1
+
+  ; Switch valves based on speed - low speed acts as low temp sink and should not accept heat FROM the condenser coil discharge
+  sbn DigitalValve EvapValve On HighSpeed
+  sbn DigitalValve BypassValve On Scratch
+
+  get FlowMax db SP_S1MAX
+  get FlowMin db SP_S1MIN
+
+  ; Based on speed mode, adjust pump speed up/down to setpoint
+  ; applying separate ramp rates for each setpoint
+  select Scratch2 HighSpeed FlowMax FlowMin
+  sub Scratch Scratch2 CurrentSpeed
+  sgn Scratch Scratch
+  add Scratch2 Scratch SP_RAMPN
+  get Scratch2 db Scratch2
+  mul Scratch Scratch Scratch2
+  add Scratch Scratch CurrentSpeed
+  min Scratch Scratch FlowMax
+  max Scratch Scratch FlowMin
+
+  sbn TurboPump S1Compressor Setting Scratch
+  trunc Scratch3 Scratch
+  add Scratch3 SP_STRTABLE Scratch3
+  get Scratch3 db Scratch3
+
+  sbn LEDDisplay2 Hash("S1 Rate") Setting Scratch3
+  sbn LEDDisplay2 Hash("S1 Rate") Mode 10
+
+  ; Now only keep the turbopump on if we need to reheat to avoid icing (or if we're enabled)
+  ; Also turn on the pipe heater if enable is OFF and temperature is below setpoint
+  lbn Scratch2 PipeAnalyzer S1Evaporate Temperature Sum
+  get Scratch db SP_S1RHSP
+  slt Scratch2 Scratch2 Scratch
+
+  ; Run turbopump if enabled or cold
+  or Scratch Scratch2 Enable
+  sbn TurboPump S1Compressor On Scratch
+  sbn LEDDisplay2 Hash("S1 Rate") On Scratch
+
+  select Scratch3 Scratch2 Str("DEFRST") Str("STOP")
+  select Scratch3 Enable Str("RUN") Scratch3
+  sbn LEDDisplay3 Hash("S1 Mode") Setting Scratch3
+  sbn LEDDisplay3 Hash("S1 Mode") Mode 10
+
+  select Scratch3 Scratch2 Color.Orange Color.Red
+  select Scratch3 Enable Color.Green Scratch3
+  sbn LEDDisplay3 Hash("S1 Mode") Color Scratch3
+
+  ; Run heater if disabled and cold
+  select Scratch2 Enable 0 Scratch2
+  sbn PipeHeater S1ReHeater On Scratch2
+
+
+
+
+  ; Now run S2 the same way.  Start with speed selection
+  lbn Scratch PipeAnalyzer S1Evaporate Temperature Sum
+  lbn Scratch2 PipeAnalyzer S2Condensate Temperature Sum
+  lbn CurrentSpeed TurboPump S2Compressor Setting Sum
+
+  ; Tie in enable
+  slt HighSpeed Scratch Scratch2
+
+  select Scratch3 HighSpeed Str("Full") Str("S.Cool")
+  sbn LEDDisplay3 Hash("S2 Speed") Setting Scratch3
+  sbn LEDDisplay3 Hash("S2 Speed") Mode 10
+  sbn LEDDisplay3 Hash("S2 Speed") On Enable
+
+  and HighSpeed HighSpeed Enable
+
+  get FlowMax db SP_S2MAX
+  get FlowMin db SP_S2MIN
+
+  ; and ramp speed
+  select Scratch2 HighSpeed FlowMax FlowMin
+  sub Scratch Scratch2 CurrentSpeed
+  sgn Scratch Scratch
+  add Scratch2 Scratch SP_RAMPN
+  get Scratch2 db Scratch2
+  mul Scratch Scratch Scratch2
+  add Scratch Scratch CurrentSpeed
+  min Scratch Scratch FlowMax
+  max Scratch Scratch FlowMin
+  sbn TurboPump S2Compressor Setting Scratch
+
+  trunc Scratch3 Scratch
+  add Scratch3 SP_STRTABLE Scratch3
+  get Scratch3 db Scratch3
+
+  sbn LEDDisplay2 Hash("S2 Rate") Setting Scratch3
+  sbn LEDDisplay2 Hash("S2 Rate") Mode 10
+
+  ; Unlike S1 we don't have a freeze risk so we can just hard power-down the pump
+  sbn TurboPump S2Compressor On Enable
+  sbn LEDDisplay2 Hash("S2 Rate") On Enable
+
+  select Scratch3 Enable Str("RUN") Str("STOP")
+  sbn LEDDisplay3 Hash("S2 Mode") Setting Scratch3
+  sbn LEDDisplay3 Hash("PCD Mode") Setting Scratch3
+  select Scratch3 Enable Color.Green Color.Red
+  sbn LEDDisplay3 Hash("S2 Mode") Color Scratch3
+  sbn LEDDisplay3 Hash("S2 Mode") Mode 10
+  sbn LEDDisplay3 Hash("PCD Mode") Color Scratch3
+  sbn LEDDisplay3 Hash("PCD Mode") Mode 10
+
+
+  ; And turn off the phase change devices as well
+  sb PhaseCondensor On Enable
+  sb PhaseEvaporator On Enable
+
+  j loop

@@ -1,0 +1,13 @@
+  define  SP_START        0
+  define  SP_RAMPD        1
+  define  SP_RAMPN        2
+  define  SP_RAMPU        3
+
+  define  SP_S1MAX        10
+  define  SP_S1MIN        11
+  define  SP_S1RHSP       12
+
+  define  SP_S2MAX        20
+  define  SP_S2MIN        21
+
+  define  SP_STRTABLE     100

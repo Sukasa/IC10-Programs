@@ -1,0 +1,70 @@
+section definitions
+  include HPC_Stack.ic10
+  include Devices.ic10
+
+
+  alias   Scratch         r0
+  alias   Scratch2        r1
+  alias   NetSize         r2
+
+  alias   ScanIter        r3
+  alias   DevPrefabHash   r4
+
+  alias   MainCtrl        d0
+
+section application requires definitions
+
+  poke 0 SP_S1RHSP
+  poke 1 SP_S2MIN
+  poke 2 SP_S1MIN
+  poke 3 SP_S2MAX
+  poke 4 SP_S1MAX
+  poke 5 SP_RAMPU
+  poke 6 SP_RAMPD
+  move sp 7
+  move ScanIter 0
+
+  move Scratch2 -1
+  lb NetSize RoundButton PrefabHash Sum ; Do a search
+
+_prefab_search_loop:
+  add Scratch2 Scratch2 1
+  get Scratch db:0 Scratch2
+  l DevPrefabHash Scratch PrefabHash
+  bne DevPrefabHash RoundButton _prefab_search_loop
+  push Scratch
+  sub NetSize NetSize RoundButton
+  bnez NetSize _prefab_search_loop
+
+loop:
+  lbn Scratch BigLever SystemPower Setting Maximum  ; Read big lever and store to main controller
+  put MainCtrl SP_START Scratch
+
+  move sp 14
+  sgt Scratch ScanIter 8
+  select ScanIter Scratch ScanIter sp
+  sub ScanIter ScanIter 1
+  get Scratch db ScanIter
+  l Scratch Scratch NameHash
+  mod Scratch2 Scratch 151
+  mod Scratch2 Scratch2 7
+  get Scratch2 db Scratch2
+  get Scratch2 MainCtrl Scratch2
+  sbn LEDDisplay3 Scratch Setting Scratch2
+
+  yield
+  lb Scratch RoundButton Setting Maximum
+  beqz Scratch loop
+
+next:
+  pop Scratch
+  l Scratch2 Scratch Setting
+  beqz Scratch2 next
+  l Scratch2 Scratch NameHash
+  lbn Scratch NumPad SetpointEntry Setting Sum
+  sbn LEDDisplay3 Scratch2 Setting Scratch
+  mod Scratch2 Scratch2 151
+  mod Scratch2 Scratch2 7
+  get Scratch2 db Scratch2
+  put MainCtrl Scratch2 Scratch
+  j loop
