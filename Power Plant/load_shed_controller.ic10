@@ -1,0 +1,80 @@
+section definitions
+  define  Slider          Hash("ModularDeviceSlider")
+  define  FlipSwitch      Hash("ModularDeviceFlipSwitch")
+  define  Indicator       Hash("ModularDeviceLightSmall")
+  define  Battery         Hash("StructureBatteryLarge")
+  define  BatterySmall    Hash("StructureBattery")
+
+  define  SP_TABLEEND      0
+  define  SP_TABLESTART    1
+
+  alias   devRefId        r0
+  alias   devNameHash     r1
+  alias   devPrefab       r2
+  alias   findPrefab      r3
+  alias   networkIdx      r4
+  alias   networkCount    r5
+
+  alias   shedThreshold   r11
+  alias   shedStatus      r12
+  alias   batteryLevel    r13
+  alias   scratch2        r14
+  alias   scratch         r15
+
+section application requires definitions
+
+start:
+  move sp SP_TABLESTART
+
+  ; Find drills
+  move findPrefab FlipSwitch
+  jal prefab_search
+  poke SP_TABLEEND sp
+
+loop:
+  yield
+  get sp db SP_TABLEEND
+  lb scratch Battery Maximum Sum
+  lb scratch2 BatterySmall Maximum Sum
+  add batteryLevel scratch scratch2
+  lb scratch Battery Charge Sum
+  lb scratch2 BatterySmall Charge Sum
+  add scratch scratch scratch2
+  div batteryLevel scratch batteryLevel
+
+shedloop:
+  ble sp SP_TABLESTART loop
+  pop devRefId
+  pop shedStatus
+
+  l devNameHash devRefId NameHash
+  lbn shedThreshold Slider devNameHash Setting Average
+  slt scratch shedThreshold batteryLevel ; scratch = power level ok
+  beq scratch shedStatus shedloop
+
+  seqz scratch2 scratch
+  s devRefId Setting scratch
+  sbn Indicator devNameHash On scratch2
+  select scratch2 scratch2 Color.Red Color.Black
+  sbn Indicator devNameHash Color scratch2
+
+  poke sp scratch
+  j shedloop
+
+prefab_search:
+  move networkIdx -1
+  lb networkCount findPrefab PrefabHash Sum
+
+_prefab_search_loop:
+  beqz networkCount ra
+  add networkIdx networkIdx 1
+  get devRefId db:0 networkIdx
+  l devPrefab devRefId PrefabHash
+  bne devPrefab findPrefab _prefab_search_loop
+  sub networkCount networkCount findPrefab
+  l devNameHash devRefId NameHash
+  lbn devPrefab Slider devNameHash ReferenceId Minimum
+  bdns devPrefab _prefab_search_loop
+  push 1
+  push devRefId
+  j _prefab_search_loop
