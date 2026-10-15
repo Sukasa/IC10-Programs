@@ -1,0 +1,161 @@
+section definitions
+  include HPC_Stack.ic10
+  include Devices.ic10
+
+  define  SP_REGULATORS   0
+  define  SP_PURGEVALVES  1
+  define  SP_BACKREGS     2
+  define  SP_PRESSURANT   3
+  define  SP_VOLUMEPUMPS  4
+  define  SP_LPUMPS       5
+  define  SP_DVALVES      6
+  define  SP_REFERENCEIDS 7 ; Start of RefIds
+
+
+  ; Volatile data
+  alias   devRefId        r0
+  alias   devNameHash     r1
+  alias   scratch         r2
+  alias   scratch2        r3
+  alias   table_end       r4
+  alias   scratch3        r5
+  alias   findPrefab      r6
+  alias   networkIdx      r7
+  alias   networkCount    r8
+  alias   devTableIdx     r9
+  alias   devPrefab       r10
+  alias   scratch4        r11
+
+  ; Init for prefab finding
+  move sp SP_REFERENCEIDS
+  move devTableIdx SP_REGULATORS
+
+  ; Find regulators, purge valves, and volume pumps
+  move findPrefab PresRegulator
+  jal prefab_search
+  move findPrefab PurgeValve
+  jal prefab_search
+  move findPrefab BackRegulator
+  jal prefab_search
+  move findPrefab PressurantValve
+  jal prefab_search
+  move findPrefab VolumePump
+  jal prefab_search
+  move findPrefab LiquidPump
+  jal prefab_search
+  move findPrefab LiquidDValve
+  jal prefab_search
+
+main_loop:
+  yield
+
+  get sp db SP_DVALVES
+  get table_end db SP_LPUMPS
+
+lvalve_loop:
+  pop devRefId
+  l devNameHash devRefId NameHash
+
+  lbn scratch2 LPipeAnalyzer devNameHash Temperature Sum
+  lbn scratch3 BigDial devNameHash Setting Sum
+  sgt scratch2 scratch2 scratch3
+  s devRefId On scratch2
+
+  bgt sp table_end lvalve_loop
+  get table_end db SP_VOLUMEPUMPS
+
+
+lpump_loop:
+  pop devRefId
+  l devNameHash devRefId NameHash
+
+  lbn scratch LogicSwitch devNameHash Setting Sum
+  s devRefId On scratch
+
+  lbn scratch2 Dial devNameHash Setting Sum
+  lbn scratch3 Dial devNameHash Setting Average
+  snan scratch3 scratch3
+  select scratch2 scratch3 10000 scratch2
+  div scratch2 scratch2 1000
+  s devRefId Setting scratch2
+
+  select scratch2 scratch scratch2 Str("Off")
+  sbn LEDDisplay2 devNameHash Setting scratch2
+
+  select scratch2 scratch 12 10
+  sbn LEDDisplay2 devNameHash Mode scratch2
+
+  select scratch2 scratch Color.White Color.Orange
+  sbn LEDDisplay2 devNameHash Color scratch2
+
+  select scratch2 scratch Color.Green Color.Red
+  sbn LogicSwitch devNameHash Color scratch2
+
+  bgt sp table_end lpump_loop
+  get table_end db SP_PRESSURANT
+
+pump_loop:
+  pop devRefId
+  l devNameHash devRefId NameHash
+  lbn scratch FlipSwitch devNameHash Setting Sum
+  lbn scratch3 FlipCoverSwitch devNameHash Setting Sum
+  or scratch scratch scratch3
+  s devRefId On scratch
+  lbn scratch2 Dial devNameHash Setting Average
+  snan scratch3 scratch2
+
+  select scratch2 scratch3 10 scratch2
+  s devRefId Setting scratch2
+
+  select scratch2 scratch scratch2 Str("Off")
+  sbn LEDDisplay2 devNameHash Setting scratch2
+
+  select scratch2 scratch Color.White Color.Orange
+  sbn LEDDisplay2 devNameHash Color scratch2
+
+  select scratch2 scratch 12 10
+  sbn LEDDisplay2 devNameHash Mode scratch2
+
+  bgt sp table_end pump_loop
+
+
+setting_loop:
+  pop devRefId
+  l devNameHash devRefId NameHash
+  lbn scratch FlipSwitch devNameHash Setting Sum
+  lbn scratch3 FlipCoverSwitch devNameHash Setting Sum
+  or scratch scratch scratch3
+  s devRefId On scratch
+
+  lbn scratch2 Dial devNameHash Setting Sum
+  s devRefId Setting scratch2
+  mul scratch2 scratch2 1000
+
+  select scratch2 scratch scratch2 Str("Off")
+  sbn LEDDisplay2 devNameHash Setting scratch2
+
+  select scratch2 scratch Color.White Color.Orange
+  sbn LEDDisplay2 devNameHash Color scratch2
+
+  select scratch2 scratch 14 10
+  sbn LEDDisplay2 devNameHash Mode scratch2
+
+  bgt sp SP_REFERENCEIDS setting_loop
+  j main_loop
+
+prefab_search:
+  move networkIdx -1
+  lb networkCount findPrefab PrefabHash Sum
+
+_prefab_search_loop:
+  add networkIdx networkIdx 1
+  get devRefId db:0 networkIdx
+  l devPrefab devRefId PrefabHash
+  bne devPrefab findPrefab _prefab_search_loop
+  push devRefId
+  sub networkCount networkCount findPrefab
+  bnez networkCount _prefab_search_loop
+  poke devTableIdx sp
+  add devTableIdx devTableIdx 1
+  j ra
+

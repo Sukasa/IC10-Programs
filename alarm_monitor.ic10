@@ -1,0 +1,45 @@
+
+  define  Bar             Hash("ModularDeviceSliderDiode1")
+  define  Bar2            Hash("ModularDeviceSliderDiode2")
+  define  Meter           Hash("ModularDeviceGauge3x3")
+  define  Transformer     Hash("StructureTransformer")
+  define  FlashingLight   Hash("StructureFlashingLight")
+  define  DiodeSmall      Hash("ModularDeviceLightSmall")
+  define  ICHousing       Hash("StructureCircuitHousing")
+  define  CompactHousing  Hash("StructureCircuitHousingCompact")
+
+loop:
+  yield
+
+  ; Check if any of the bars (filter, battery) or gauges (air tank) are low
+  lb r0 Bar Setting Minimum
+  lb r1 Bar2 Setting Minimum
+  min r0 r0 r1
+  slt r2 r0 0.5
+
+  lb r0 Meter Setting Minimum
+  slt r3 r0 5
+  or r2 r2 r3
+
+  lb r15 Transformer PrefabHash Sum
+  div r15 r15 Transformer
+  sub r15 r15 1
+  lb r0 Transformer On Sum
+  sne r3 r0 r15
+  or r2 r2 r3
+
+  lb r0 DiodeSmall Color Maximum
+  seq r3 r0 4
+  or r2 r2 r3
+
+  lb r0 ICHousing Error Maximum
+  snez r3 r0
+  or r2 r2 r3
+
+  lb r0 CompactHousing Error Maximum
+  snez r3 r0
+  or r2 r2 r3
+
+  sb FlashingLight On r2
+
+  j loop

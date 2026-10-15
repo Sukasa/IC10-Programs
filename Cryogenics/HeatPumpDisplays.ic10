@@ -2,14 +2,11 @@ section definitions
   include HPC_Stack.ic10
   include Devices.ic10
 
-  define  SP_REGULATORS   0
-  define  SP_PURGEVALVES  1
-  define  SP_VOLUMEPUMPS  2
-  define  SP_GANALYZERS   3
-  define  SP_LANALYZERS   4
-  define  SP_PCDS1        5
-  define  SP_PCDS2        6
-  define  SP_REFERENCEIDS 7 ; Start of RefIds
+  define  SP_GANALYZERS   0
+  define  SP_LANALYZERS   1
+  define  SP_PCDS1        2
+  define  SP_PCDS2        3
+  define  SP_REFERENCEIDS 4 ; Start of RefIds
 
 
   ; Volatile data
@@ -28,15 +25,7 @@ section definitions
 
   ; Init for prefab finding
   move sp SP_REFERENCEIDS
-  move devTableIdx SP_REGULATORS
-
-  ; Find regulators, purge valves, and volume pumps
-  move findPrefab PresRegulator
-  jal prefab_search
-  move findPrefab PurgeValve
-  jal prefab_search
-  move findPrefab VolumePump
-  jal prefab_search
+  move devTableIdx SP_GANALYZERS
 
   ; Find pipe analyzers
   move findPrefab PipeAnalyzer
@@ -54,7 +43,7 @@ main_loop:
   yield
 
   get sp db SP_PCDS2
-  get table_end db SP_VOLUMEPUMPS
+  get table_end db SP_REFERENCEIDS
 
 analyzer_loop:
   pop devRefId
@@ -72,34 +61,7 @@ analyzer_loop:
   l scratch devRefId VolumeOfLiquid
   sbn Gauge devNameHash Setting scratch
 no_liq_read:
-  bgt sp table_end analyzer_loop
-
-pump_loop:
-  pop devRefId
-  l devNameHash devRefId NameHash
-  lbn scratch FlipSwitch devNameHash Setting Sum
-  s devRefId On scratch
-  lbn scratch2 Dial devNameHash Setting Sum
-  s devRefId Setting scratch2
-
-  get scratch3 db SP_PURGEVALVES
-  sge scratch3 sp scratch3
-
-  select scratch4 scratch3 1 1000
-  mul scratch2 scratch2 scratch4
-
-  select scratch2 scratch scratch2 Str("Off")
-  sbn LEDDisplay2 devNameHash Setting scratch2
-
-  select scratch2 scratch Color.White Color.Orange
-  sbn LEDDisplay2 devNameHash Color scratch2
-
-
-  select scratch2 scratch3 12 14
-  select scratch2 scratch scratch2 10
-  sbn LEDDisplay2 devNameHash Mode scratch2
-
-  bgt sp SP_REFERENCEIDS pump_loop
+  bgt sp SP_REFERENCEIDS analyzer_loop
   j main_loop
 
 prefab_search:
@@ -111,6 +73,7 @@ _prefab_search_loop:
   get devRefId db:0 networkIdx
   l devPrefab devRefId PrefabHash
   bne devPrefab findPrefab _prefab_search_loop
+  l scratch devRefId NameHash
   push devRefId
   sub networkCount networkCount findPrefab
   bnez networkCount _prefab_search_loop

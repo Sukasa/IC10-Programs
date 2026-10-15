@@ -1,10 +1,10 @@
 #########################################################################################################################################################
 #                                                                                                                                                       #
-# Stationeers Greenhouse rack control v3.0                                                                                                              #
+# Stationeers Greenhouse rack control v3.1                                                                                                              #
 # Sectioned into "provision", "extended" and "application" programs, with a common definitions section                                                  #
 # The former runs in-situ to set up the stack, the latter runs normally using the same IC10 afterwards (stack is non-volatile)                          #
 # "Extended" program enables Extended Mode by selectively updating some stack and register data                                                         #
-# Standard mode completes a full scan every second, Extended mode runs at 0.667Hz.                                                                      #
+# Standard mode completes a full scan every second, Extended mode runs at 0.5Hz.                                                                      #
 # This file is intended to be pre-processed by my IC10 Inliner program in order to produce the Vanilla-friendly assembly files                          #
 # Get that program at https://github.com/Sukasa/IC10-Inliner                                                                                            #
 #                                                                                                                                                       #

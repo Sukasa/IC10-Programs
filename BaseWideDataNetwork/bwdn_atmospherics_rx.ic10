@@ -51,6 +51,7 @@ rx_packet_sub:
   lbn Reading Bar Name ReferenceId Sum
   beqz Reading ra
   lbn Ref Bar Name ReferenceId Maximum
+  bdns Ref ra
   ext Reading Data 0 5
   div Colour Reading 8
   div Reading Reading 31

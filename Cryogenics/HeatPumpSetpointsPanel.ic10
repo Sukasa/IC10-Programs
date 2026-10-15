@@ -41,7 +41,7 @@ loop:
   put MainCtrl SP_START Scratch
 
   move sp 14
-  sgt Scratch ScanIter 8
+  sgt Scratch ScanIter 7
   select ScanIter Scratch ScanIter sp
   sub ScanIter ScanIter 1
   get Scratch db ScanIter
@@ -51,6 +51,7 @@ loop:
   get Scratch2 db Scratch2
   get Scratch2 MainCtrl Scratch2
   sbn LEDDisplay3 Scratch Setting Scratch2
+  sbn LEDDisplay3 Scratch Mode 0
 
   yield
   lb Scratch RoundButton Setting Maximum

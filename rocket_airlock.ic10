@@ -1,0 +1,120 @@
+  alias   IntVent             d0
+  alias   ExtVent             d1
+  alias   GasSensor           d2
+  alias   IntALock            d3
+  define  ExtALock            Hash("StructureAirlock")
+
+  alias   SideVent            dr0
+
+  alias   CurrentSide         r0
+  alias   Scratch             r15
+  alias   Scratch2            r14
+
+  define  MODE_PRESSURIZE     0
+  define  MODE_DEPRESSURIZE   1
+
+  define  PRESSURE_INTERIOR   101.325
+  define  PRESSURE_EXTERIOR    2
+
+  define  SIDE_INTERIOR       0
+  define  SIDE_EXTERIOR       1
+
+  move CurrentSide SIDE_EXTERIOR
+
+state_transit_interior:
+  jal vacuum
+  s IntVent Mode MODE_PRESSURIZE
+  s IntVent PressureExternal PRESSURE_INTERIOR
+  s IntVent On 1
+  move CurrentSide SIDE_INTERIOR
+
+  push PRESSURE_INTERIOR
+  jal wait_airlock_pressure
+
+  s IntVent On 0
+  s IntALock Lock 0
+  s IntALock Open 1
+  s IntALock Setting 1
+
+  jal wait_door_request
+
+state_transit_exterior:
+  jal vacuum
+
+  s ExtVent Mode MODE_PRESSURIZE
+  s ExtVent PressureExternal PRESSURE_EXTERIOR
+  s ExtVent On 1
+  move CurrentSide SIDE_EXTERIOR
+
+  push PRESSURE_EXTERIOR
+  jal wait_airlock_pressure
+
+  s ExtVent On 0
+  sb ExtALock Lock 0
+  sb ExtALock Open 1
+  sb ExtALock Setting 1
+
+  jal wait_door_request
+  j state_transit_interior
+
+vacuum:
+  s IntALock Lock 1
+  s IntALock Open 0
+  s IntALock Setting 0
+
+  sb ExtALock Lock 1
+  sb ExtALock Open 0
+  sb ExtALock Setting 0
+
+  s SideVent Mode MODE_DEPRESSURIZE
+  s SideVent PressureExternal 0
+  s SideVent On 1
+
+  push ra
+  push 0
+  jal wait_airlock_pressure
+
+  sb ExtALock Lock 0
+  s IntALock Lock 0
+  s SideVent On 0
+
+  pop ra
+  j ra
+
+
+
+wait_airlock_pressure:
+  pop Scratch
+wait_airlock_loop:
+  yield
+  l Scratch2 GasSensor Pressure
+  sub Scratch2 Scratch Scratch2
+  abs Scratch2 Scratch2
+  bgt Scratch2 1 wait_airlock_loop
+  yield
+  yield ; yield a few times for that last bit of gas
+  yield
+  j ra
+
+wait_door_request:
+  push ra
+  jal clear_door_request
+  pop ra
+
+wait_door_loop:
+  yield
+  l Scratch IntALock Open
+  l Scratch2 IntALock Setting
+  bne Scratch Scratch2 ra
+  lb Scratch ExtALock Open Sum
+  lb Scratch2 ExtALock Setting Sum
+  bne Scratch Scratch2 ra
+  j wait_door_loop
+
+clear_door_request:
+  l Scratch IntALock Open
+  s IntALock Setting Scratch
+  lb Scratch ExtALock Open Maximum
+  sb ExtALock Setting Scratch
+  j ra
+
